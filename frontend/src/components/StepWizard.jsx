@@ -65,7 +65,7 @@ export default function StepWizard({ user, refreshUser }) {
 
     try {
       const token = localStorage.getItem('token');
-      await axios.post('http://localhost:5000/api/progress/submit', fd, {
+      await axios.post(`${import.meta.env.VITE_API_URL}/api/progress/submit`, fd, {
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' }
       });
       refreshUser(); // Will set ocrStatus to PROCESSING

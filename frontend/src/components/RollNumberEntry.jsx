@@ -27,7 +27,7 @@ export default function RollNumberEntry({ user, onConfirm }) {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:5000/api/profile/roll', {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/profile/roll`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ rollNumber: matched.rollNumber, officialName: matched.fullName })

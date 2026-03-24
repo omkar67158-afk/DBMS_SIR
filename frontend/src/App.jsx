@@ -18,7 +18,7 @@ function App() {
       const token = localStorage.getItem('token');
       if (token) {
         try {
-          const res = await axios.get('http://localhost:5000/api/progress', {
+          const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/progress`, {
             headers: { Authorization: `Bearer ${token}` }
           });
           setUser({
@@ -52,7 +52,7 @@ function App() {
     if (token) {
       try {
         // Clear session on the server FIRST so other devices can log in
-        await axios.post('http://localhost:5000/api/auth/logout', {}, {
+        await axios.post(`${import.meta.env.VITE_API_URL}/api/auth/logout`, {}, {
           headers: { Authorization: `Bearer ${token}` }
         });
       } catch { /* ignore — still clear locally */ }
