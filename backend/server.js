@@ -343,6 +343,19 @@ app.post('/api/progress/submit', requireAuth, upload.single('screenshot'), async
   }
 });
 
+// 5. Leaderboard — race standings for all enrolled students
+app.get('/api/leaderboard', requireAuth, async (req, res) => {
+  try {
+    const users = await User.find(
+      { rollNumber: { $exists: true, $ne: null } },
+      'name rollNumber currentStep isCompleted completedAt'
+    ).sort({ currentStep: -1 });
+    res.json(users);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch leaderboard' });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Backend server running on port ${PORT}`);
 });

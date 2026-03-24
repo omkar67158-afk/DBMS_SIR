@@ -3,7 +3,8 @@ import Login from './components/Login';
 import StepWizard from './components/StepWizard';
 import RollNumberEntry from './components/RollNumberEntry';
 import { courseQuestions } from './content';
-import { LogOut, Zap } from 'lucide-react';
+import RaceLeaderboard from './components/RaceLeaderboard';
+import { LogOut, Zap, Trophy, BookOpen } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import './index.css';
@@ -12,6 +13,7 @@ function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loginError, setLoginError] = useState('');
+  const [activeTab, setActiveTab] = useState('course');
 
   const fetchProgress = useCallback(async () => {
     const token = localStorage.getItem('token');
@@ -118,6 +120,35 @@ function App() {
               <span className="chip">
                 Step {Math.min(currentStep, total)} of {total}
               </span>
+              {/* Tab switcher */}
+              <div style={{ display: 'flex', background: 'var(--surface-3)', borderRadius: 'var(--radius-sm)', padding: '3px', gap: '2px', border: '1px solid var(--border)' }}>
+                <button
+                  onClick={() => setActiveTab('course')}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '5px',
+                    padding: '5px 12px', fontSize: '12px', fontWeight: '600',
+                    borderRadius: '5px', border: 'none', cursor: 'pointer',
+                    background: activeTab === 'course' ? 'var(--surface)' : 'transparent',
+                    color: activeTab === 'course' ? 'var(--txt)' : 'var(--txt-muted)',
+                    boxShadow: activeTab === 'course' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                    transition: 'all 0.15s',
+                  }}>
+                  <BookOpen size={12} /> Course
+                </button>
+                <button
+                  onClick={() => setActiveTab('race')}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '5px',
+                    padding: '5px 12px', fontSize: '12px', fontWeight: '600',
+                    borderRadius: '5px', border: 'none', cursor: 'pointer',
+                    background: activeTab === 'race' ? 'var(--surface)' : 'transparent',
+                    color: activeTab === 'race' ? 'var(--brand)' : 'var(--txt-muted)',
+                    boxShadow: activeTab === 'race' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                    transition: 'all 0.15s',
+                  }}>
+                  <Trophy size={12} /> Race 🏎️
+                </button>
+              </div>
               <button className="btn btn-ghost" onClick={handleLogout} style={{ padding: '7px 14px', fontSize: '13px' }}>
                 <LogOut size={14} /> Sign out
               </button>
@@ -208,8 +239,11 @@ function App() {
 
             {/* Main Panel */}
             <main className="main-content">
-              {/* ✅ Pass fetchProgress (stable useCallback) instead of window.location.reload() */}
-              <StepWizard user={user} refreshUser={fetchProgress} />
+              {activeTab === 'race' ? (
+                <RaceLeaderboard user={user} />
+              ) : (
+                <StepWizard user={user} refreshUser={fetchProgress} />
+              )}
             </main>
           </motion.div>
         )}
