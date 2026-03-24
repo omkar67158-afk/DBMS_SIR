@@ -34,6 +34,7 @@ function App() {
         rollNumber: res.data.rollNumber,
         ocrStatus: res.data.ocrStatus,
         ocrFeedback: res.data.ocrFeedback,
+        rejectionCount: res.data.rejectionCount ?? 0,
       }));
     } catch (err) {
       const code = err?.response?.data?.error;
@@ -64,6 +65,7 @@ function App() {
             rollNumber: res.data.rollNumber,
             ocrStatus: res.data.ocrStatus,
             ocrFeedback: res.data.ocrFeedback,
+            rejectionCount: res.data.rejectionCount ?? 0,
           });
         } catch (err) {
           const code = err?.response?.data?.error;
