@@ -168,18 +168,10 @@ export default function RaceLeaderboard({ user }) {
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
                             <span style={{ fontSize: '22px' }}>🏎️</span>
                             <span style={{ fontFamily: '"Orbitron","Courier New",monospace', fontSize: '18px', fontWeight: '900', letterSpacing: '0.12em', color: '#fff' }}>
-                                DATAPIPELINE GP
+                                DATAPIPELINE RACE
                             </span>
                         </div>
-                        <div style={{ display: 'flex', gap: '18px', flexWrap: 'wrap' }}>
-                            {[
-                                { icon: '✅', text: 'Step done = +100 pts', color: 'rgba(52,211,153,0.7)' },
-                                { icon: '❌', text: 'Wrong screenshot = −25 pts', color: 'rgba(248,113,113,0.7)' },
-                                { icon: '🏆', text: `Max ${MAX_SCORE} pts = 100%`, color: 'rgba(255,255,255,0.35)' },
-                            ].map(({ icon, text, color }) => (
-                                <span key={text} style={{ fontSize: '11px', color, display: 'flex', alignItems: 'center', gap: '5px' }}>{icon} {text}</span>
-                            ))}
-                        </div>
+
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                         {lastUpdate && (
