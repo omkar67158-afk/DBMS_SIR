@@ -12,23 +12,19 @@ export default function StepWizard({ user, refreshUser }) {
   const [file, setFile] = useState(null);
   const [uploadState, setUploadState] = useState(''); // 'uploading' | 'ocr' | 'ai' | 'success' | 'error'
   const [error, setError] = useState('');
-  const [isAwaitingQueue, setIsAwaitingQueue] = useState(false);
 
   // Setup background polling for BullMQ queue worker
   useEffect(() => {
     let interval;
     if (user.ocrStatus === 'PROCESSING') {
-      setIsAwaitingQueue(true);
       interval = setInterval(() => { refreshUser(); }, 2000);
     } else if (user.ocrStatus === 'REJECTED' && uploadState !== 'error') {
       setUploadState('error');
       setError(user.ocrFeedback || "Verification Failed");
       setChoice('yes'); // Re-open upload panel
-      setIsAwaitingQueue(false);
-    } else if (user.ocrStatus === 'IDLE' && file && isAwaitingQueue && uploadState !== 'error' && uploadState !== 'success') {
+    } else if (user.ocrStatus === 'IDLE' && file && uploadState && uploadState !== 'error' && uploadState !== 'success') {
       // Means it succeeded! Clean up ui with a slight visual delay for satisfaction.
       setUploadState('success');
-      setIsAwaitingQueue(false);
       setTimeout(() => {
         setFile(null);
         setChoice(null);
@@ -36,7 +32,7 @@ export default function StepWizard({ user, refreshUser }) {
       }, 1800);
     }
     return () => clearInterval(interval);
-  }, [user.ocrStatus, refreshUser, file, uploadState, user.ocrFeedback, isAwaitingQueue]);
+  }, [user.ocrStatus, refreshUser, file, uploadState, user.ocrFeedback]);
 
   const total = courseQuestions.length;
 
@@ -53,7 +49,6 @@ export default function StepWizard({ user, refreshUser }) {
     if (!file) { setError('A screenshot is required to verify this step.'); return; }
     setError('');
     setUploadState('uploading');
-    setIsAwaitingQueue(true);
 
     // Simulate progression of text states for UX while waiting for queue
     const ocrTimer = setTimeout(() => setUploadState(prev => prev === 'uploading' ? 'ocr' : prev), 1500);
@@ -159,8 +154,7 @@ export default function StepWizard({ user, refreshUser }) {
 
                 <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                   <button className="btn btn-primary" onClick={handleSubmit}
-                    disabled={!!uploadState || isAwaitingQueue}
-                    style={{ padding: '12px 28px', gap: '8px', minWidth: '180px', opacity: (!!uploadState || isAwaitingQueue) ? 0.5 : 1, cursor: (!!uploadState || isAwaitingQueue) ? 'not-allowed' : 'pointer' }}>
+                    style={{ padding: '12px 28px', gap: '8px', minWidth: '180px' }}>
                     Submit to AI <ArrowRight size={15} />
                   </button>
                 </div>

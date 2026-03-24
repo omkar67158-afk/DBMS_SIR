@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import Login from './components/Login';
 import StepWizard from './components/StepWizard';
 import RollNumberEntry from './components/RollNumberEntry';
@@ -13,47 +13,39 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [loginError, setLoginError] = useState('');
 
-  // Stable fetch function — re-fetches progress without a page reload.
-  // Passed as `refreshUser` to StepWizard so polling never wipes component state.
-  const fetchProgress = useCallback(async () => {
-    const token = localStorage.getItem('token');
-    if (!token) return;
-    try {
-      const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/progress`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setUser(prev => ({
-        ...prev,
-        currentStep: res.data.currentStep,
-        submissions: res.data.submissions,
-        isCompleted: res.data.isCompleted,
-        completedAt: res.data.completedAt,
-        name: res.data.name,
-        email: res.data.email,
-        rollNumber: res.data.rollNumber,
-        ocrStatus: res.data.ocrStatus,
-        ocrFeedback: res.data.ocrFeedback,
-      }));
-    } catch (err) {
-      const code = err?.response?.data?.error;
-      if (code === 'SESSION_CONFLICT') {
-        setLoginError(err.response.data.message);
-      }
-      localStorage.removeItem('token');
-      setUser(null);
-    }
-  }, []);
-
   useEffect(() => {
     const checkSession = async () => {
       const token = localStorage.getItem('token');
       if (token) {
-        await fetchProgress();
+        try {
+          const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/progress`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          setUser({
+            loggedIn: true,
+            currentStep: res.data.currentStep,
+            submissions: res.data.submissions,
+            isCompleted: res.data.isCompleted,
+            completedAt: res.data.completedAt,
+            name: res.data.name,
+            email: res.data.email,
+            rollNumber: res.data.rollNumber,
+            ocrStatus: res.data.ocrStatus,
+            ocrFeedback: res.data.ocrFeedback,
+          });
+        } catch (err) {
+          // If session conflict, sign out quietly
+          const code = err?.response?.data?.error;
+          if (code === 'SESSION_CONFLICT') {
+            setLoginError(err.response.data.message);
+          }
+          localStorage.removeItem('token');
+        }
       }
       setLoading(false);
     };
     checkSession();
-  }, [fetchProgress]);
+  }, []);
 
   const handleLogout = async () => {
     const token = localStorage.getItem('token');
@@ -188,7 +180,7 @@ function App() {
 
             {/* Main Panel */}
             <main className="main-content">
-              <StepWizard user={user} refreshUser={fetchProgress} />
+              <StepWizard user={user} refreshUser={() => window.location.reload()} />
             </main>
           </motion.div>
         )}

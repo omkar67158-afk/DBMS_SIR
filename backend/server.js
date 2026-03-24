@@ -136,16 +136,7 @@ if (process.env.REDIS_URL) {
       await user.save();
       if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath);
     }
-  },
-  {
-    connection,
-    concurrency: 25, // Safely blasts 25 parallel students at once per API key
-    limiter: {
-      max: 75, // Only 75 images maximum
-      duration: 60000 // ...in 60 seconds. Then automatically pauses!
-    }
-  }
-);
+  }, { connection });
 }
 
 // Database connection
