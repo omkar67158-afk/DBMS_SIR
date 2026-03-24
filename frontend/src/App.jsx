@@ -100,6 +100,10 @@ function App() {
 
   const currentStep = user?.currentStep ?? 1;
   const total = courseQuestions.length;
+  const stepsCompleted = Math.max(0, currentStep - 1);
+  const rejections = user?.rejectionCount ?? 0;
+  const netScore = Math.max(0, stepsCompleted * 100 - rejections * 25);
+  const scorePct = Math.round((netScore / (total * 100)) * 100);
 
   return (
     <div className="app-shell">
@@ -119,6 +123,9 @@ function App() {
             <>
               <span className="chip">
                 Step {Math.min(currentStep, total)} of {total}
+              </span>
+              <span className="chip" style={{ background: 'rgba(124,92,252,0.12)', color: 'var(--brand)', border: '1px solid rgba(124,92,252,0.25)', fontFamily: '"Orbitron","Courier New",monospace', fontSize: '11px', fontWeight: '700' }}>
+                {scorePct}%
               </span>
               {/* Tab switcher */}
               <div style={{ display: 'flex', background: 'var(--surface-3)', borderRadius: 'var(--radius-sm)', padding: '3px', gap: '2px', border: '1px solid var(--border)' }}>
@@ -220,6 +227,26 @@ function App() {
                 </div>
                 <div className="progress-track" style={{ height: '6px' }}>
                   <div className="progress-fill" style={{ width: `${currentStep > total ? 100 : ((currentStep - 1) / total) * 100}%` }} />
+                </div>
+
+                {/* Score breakdown */}
+                <div style={{ marginTop: '14px', padding: '10px 12px', borderRadius: 'var(--radius-sm)', background: 'rgba(124,92,252,0.06)', border: '1px solid rgba(124,92,252,0.15)' }}>
+                  <div style={{ fontSize: '10px', fontWeight: '700', color: 'var(--txt-faint)', letterSpacing: '0.08em', marginBottom: '8px' }}>SCORE BREAKDOWN</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px' }}>
+                      <span style={{ color: 'var(--txt-muted)' }}>Steps × 100</span>
+                      <span style={{ color: 'var(--green)', fontWeight: '600' }}>+{stepsCompleted * 100}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px' }}>
+                      <span style={{ color: 'var(--txt-muted)' }}>Wrong shots × 25</span>
+                      <span style={{ color: rejections > 0 ? '#f87171' : 'var(--txt-faint)', fontWeight: '600' }}>−{rejections * 25}</span>
+                    </div>
+                    <div style={{ height: '1px', background: 'var(--border)', margin: '4px 0' }} />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: '700' }}>
+                      <span style={{ color: 'var(--txt-muted)' }}>Net Score</span>
+                      <span style={{ color: 'var(--brand)', fontFamily: '"Orbitron","Courier New",monospace', fontSize: '13px' }}>{scorePct}%</span>
+                    </div>
+                  </div>
                 </div>
               </div>
 

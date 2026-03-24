@@ -87,6 +87,7 @@ if (process.env.REDIS_URL) {
       if (!extractedText || extractedText.trim().length < minLength) {
         user.ocrStatus = 'REJECTED';
         user.ocrFeedback = "Could not read any clear text from the screenshot. Please upload a higher quality, legible image.";
+        user.rejectionCount = (user.rejectionCount || 0) + 1;
         await user.save();
         if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath);
         return;
@@ -115,6 +116,7 @@ if (process.env.REDIS_URL) {
       if (aiResult.status !== "COMPLETED") {
         user.ocrStatus = 'REJECTED';
         user.ocrFeedback = `AI Rejected: ${aiResult.reason}`;
+        user.rejectionCount = (user.rejectionCount || 0) + 1;
         await user.save();
         if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath);
         return;
@@ -141,6 +143,7 @@ if (process.env.REDIS_URL) {
       console.error("Worker OCR Error:", error);
       user.ocrStatus = 'REJECTED';
       user.ocrFeedback = "Internal OCR Processing Error. Please try again.";
+      user.rejectionCount = (user.rejectionCount || 0) + 1;
       await user.save();
       if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath);
     }
@@ -256,7 +259,8 @@ app.get('/api/progress', requireAuth, async (req, res) => {
       rollNumber: user.rollNumber,
       officialName: user.officialName,
       ocrStatus: user.ocrStatus,
-      ocrFeedback: user.ocrFeedback
+      ocrFeedback: user.ocrFeedback,
+      rejectionCount: user.rejectionCount || 0
     });
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch progress" });
@@ -348,9 +352,34 @@ app.get('/api/leaderboard', requireAuth, async (req, res) => {
   try {
     const users = await User.find(
       { rollNumber: { $exists: true, $ne: null } },
-      'name rollNumber currentStep isCompleted completedAt'
-    ).sort({ currentStep: -1 });
-    res.json(users);
+      'name rollNumber currentStep isCompleted completedAt rejectionCount'
+    );
+
+    const MAX_SCORE = 800; // 8 steps × 100
+
+    const ranked = users
+      .map(u => {
+        const steps = Math.max(0, (u.currentStep || 1) - 1); // completed steps = currentStep - 1
+        const rejections = u.rejectionCount || 0;
+        const netScore = steps * 100 - rejections * 25;
+        const scorePercent = Math.max(0, Math.round((netScore / MAX_SCORE) * 100));
+        return {
+          name: u.name,
+          rollNumber: u.rollNumber,
+          currentStep: u.currentStep,
+          isCompleted: u.isCompleted,
+          completedAt: u.completedAt,
+          rejectionCount: rejections,
+          netScore,
+          scorePercent
+        };
+      })
+      .sort((a, b) => {
+        if (b.netScore !== a.netScore) return b.netScore - a.netScore; // higher score first
+        return a.rejectionCount - b.rejectionCount;                    // fewer rejections wins tie
+      });
+
+    res.json(ranked);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch leaderboard' });
   }
