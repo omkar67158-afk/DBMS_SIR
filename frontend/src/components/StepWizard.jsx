@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle2, UploadCloud, Award, Loader2, Info, XCircle, ArrowRight, ScanLine, BrainCircuit } from 'lucide-react';
 import { courseQuestions } from '../content';
@@ -13,17 +13,33 @@ export default function StepWizard({ user, refreshUser }) {
   const [uploadState, setUploadState] = useState(''); // 'uploading' | 'ocr' | 'ai' | 'success' | 'error'
   const [error, setError] = useState('');
 
-  // Setup background polling for BullMQ queue worker
+  // Track whether we're currently in a submission flow so IDLE doesn't
+  // falsely trigger "success" on first mount or after a hard refresh.
+  const isSubmittingRef = useRef(false);
+
+  // ── Effect 1: Polling — only depends on ocrStatus + refreshUser ──
+  // Runs a clean interval while PROCESSING. Does NOT re-create the interval
+  // every time uploadState changes (which was the leak causing multiple calls).
   useEffect(() => {
-    let interval;
-    if (user.ocrStatus === 'PROCESSING') {
-      interval = setInterval(() => { refreshUser(); }, 2000);
-    } else if (user.ocrStatus === 'REJECTED' && uploadState !== 'error') {
-      setUploadState('error');
-      setError(user.ocrFeedback || "Verification Failed");
-      setChoice('yes'); // Re-open upload panel
-    } else if (user.ocrStatus === 'IDLE' && file && uploadState && uploadState !== 'error' && uploadState !== 'success') {
-      // Means it succeeded! Clean up ui with a slight visual delay for satisfaction.
+    if (user.ocrStatus !== 'PROCESSING') return;
+    const interval = setInterval(() => { refreshUser(); }, 2000);
+    return () => clearInterval(interval);
+  }, [user.ocrStatus, refreshUser]);
+
+  // ── Effect 2: React to terminal ocrStatus changes ──
+  // Separated from polling so that uploadState changes don't restart the interval.
+  useEffect(() => {
+    if (user.ocrStatus === 'REJECTED') {
+      // Only update UI once — guard via current state value inside setter
+      setUploadState(prev => {
+        if (prev === 'error') return prev; // already handled, no-op
+        setError(user.ocrFeedback || 'Verification Failed');
+        setChoice('yes');
+        return 'error';
+      });
+    } else if (user.ocrStatus === 'IDLE' && isSubmittingRef.current) {
+      // IDLE after a real submission = success
+      isSubmittingRef.current = false;
       setUploadState('success');
       setTimeout(() => {
         setFile(null);
@@ -31,8 +47,7 @@ export default function StepWizard({ user, refreshUser }) {
         setUploadState('');
       }, 1800);
     }
-    return () => clearInterval(interval);
-  }, [user.ocrStatus, refreshUser, file, uploadState, user.ocrFeedback]);
+  }, [user.ocrStatus, user.ocrFeedback]);
 
   const total = courseQuestions.length;
 
@@ -49,6 +64,7 @@ export default function StepWizard({ user, refreshUser }) {
     if (!file) { setError('A screenshot is required to verify this step.'); return; }
     setError('');
     setUploadState('uploading');
+    isSubmittingRef.current = true;
 
     // Simulate progression of text states for UX while waiting for queue
     const ocrTimer = setTimeout(() => setUploadState(prev => prev === 'uploading' ? 'ocr' : prev), 1500);
@@ -63,9 +79,10 @@ export default function StepWizard({ user, refreshUser }) {
       await axios.post(`${import.meta.env.VITE_API_URL}/api/progress/submit`, fd, {
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' }
       });
-      refreshUser(); // Will set ocrStatus to PROCESSING
+      refreshUser(); // Will set ocrStatus to PROCESSING → triggers polling effect
     } catch (err) {
       clearTimeout(ocrTimer); clearTimeout(aiTimer);
+      isSubmittingRef.current = false;
       setUploadState('error');
       setError(err.response?.data?.error || 'Upload failed. Please try again.');
     }
@@ -137,7 +154,7 @@ export default function StepWizard({ user, refreshUser }) {
 
                 <label className={`upload-zone ${file ? 'filled' : ''}`} style={{ marginBottom: '20px' }}>
                   <UploadCloud size={20} style={{ flexShrink: 0 }} />
-                  <div style={{ flex: 1 }}>
+                  <div>
                     <div style={{ fontWeight: '600', fontSize: '14px', marginBottom: '2px' }}>
                       {file ? file.name : 'Click to select or drag & drop'}
                     </div>
@@ -190,20 +207,20 @@ export default function StepWizard({ user, refreshUser }) {
       {/* ── Fullscreen AI Verification Overlay ── */}
       <AnimatePresence>
         {uploadState && (
-          <motion.div 
-            initial={{ opacity: 0, backdropFilter: 'blur(0px)' }} 
-            animate={{ opacity: 1, backdropFilter: 'blur(30px)' }} 
+          <motion.div
+            initial={{ opacity: 0, backdropFilter: 'blur(0px)' }}
+            animate={{ opacity: 1, backdropFilter: 'blur(30px)' }}
             exit={{ opacity: 0, backdropFilter: 'blur(0px)' }}
             className="glass-card"
             style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(5,5,7,0.85)', borderRadius: 0, border: 'none' }}
           >
             <div style={{ textAlign: 'center', maxWidth: '520px', width: '100%', padding: '0 20px' }}>
-              
+
               <div style={{ position: 'relative', width: '200px', height: '200px', margin: '0 auto 40px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                
+
                 {/* Outermost Ring */}
                 {(uploadState === 'uploading' || uploadState === 'ocr' || uploadState === 'ai') && (
-                  <motion.div 
+                  <motion.div
                     animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 2.5, ease: "linear" }}
                     style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '2px solid transparent', borderTopColor: 'var(--brand)', filter: 'drop-shadow(0 0 12px var(--brand))' }}
                   />
@@ -211,7 +228,7 @@ export default function StepWizard({ user, refreshUser }) {
 
                 {/* Second Ring */}
                 {(uploadState === 'ocr' || uploadState === 'ai') && (
-                  <motion.div 
+                  <motion.div
                     animate={{ rotate: -360 }} transition={{ repeat: Infinity, duration: 3.5, ease: "linear" }}
                     style={{ position: 'absolute', inset: '16px', borderRadius: '50%', border: '4px solid transparent', borderBottomColor: '#a78bfa', borderLeftColor: 'rgba(124,92,252,0.5)' }}
                   />
@@ -219,7 +236,7 @@ export default function StepWizard({ user, refreshUser }) {
 
                 {/* Third Ring */}
                 {uploadState === 'ai' && (
-                  <motion.div 
+                  <motion.div
                     animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }}
                     style={{ position: 'absolute', inset: '32px', borderRadius: '50%', border: '2px dashed #e2e8f0', opacity: 0.3 }}
                   />
@@ -241,18 +258,18 @@ export default function StepWizard({ user, refreshUser }) {
 
                 {/* Default Icon Core */}
                 {(uploadState === 'uploading' || uploadState === 'ocr' || uploadState === 'ai') && (
-                   <motion.div initial={{ scale: 0.8 }} animate={{ scale: [0.9, 1.1, 0.9] }} transition={{ repeat: Infinity, duration: 2 }} style={{ zIndex: 10 }}>
-                     {uploadState === 'uploading' && <UploadCloud size={60} color="var(--brand)" strokeWidth={1} />}
-                     {uploadState === 'ocr' && <ScanLine size={60} color="#a78bfa" strokeWidth={1} />}
-                     {uploadState === 'ai' && <BrainCircuit size={60} color="#fff" strokeWidth={1} />}
-                   </motion.div>
+                  <motion.div initial={{ scale: 0.8 }} animate={{ scale: [0.9, 1.1, 0.9] }} transition={{ repeat: Infinity, duration: 2 }} style={{ zIndex: 10 }}>
+                    {uploadState === 'uploading' && <UploadCloud size={60} color="var(--brand)" strokeWidth={1} />}
+                    {uploadState === 'ocr' && <ScanLine size={60} color="#a78bfa" strokeWidth={1} />}
+                    {uploadState === 'ai' && <BrainCircuit size={60} color="#fff" strokeWidth={1} />}
+                  </motion.div>
                 )}
               </div>
 
               <h2 style={{ fontSize: '32px', fontWeight: '800', letterSpacing: '-0.02em', marginBottom: '16px' }}>
                 {uploadState === 'uploading' && 'Transmitting Data'}
-                {uploadState === 'ocr' && <motion.span initial={{opacity:0}} animate={{opacity:1}}>Extracting Text Parameters</motion.span>}
-                {uploadState === 'ai' && <motion.span initial={{opacity:0}} animate={{opacity:1}} className="text-gradient">AI Cluster Processing</motion.span>}
+                {uploadState === 'ocr' && <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }}>Extracting Text Parameters</motion.span>}
+                {uploadState === 'ai' && <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-gradient">AI Cluster Processing</motion.span>}
                 {uploadState === 'success' && <span className="text-green">Verification Passed!</span>}
                 {uploadState === 'error' && <span style={{ color: 'var(--red)' }}>Verification Failed</span>}
               </h2>
