@@ -22,7 +22,7 @@ export default function StepWizard({ user, refreshUser }) {
   // every time uploadState changes (which was the leak causing multiple calls).
   useEffect(() => {
     if (user.ocrStatus !== 'PROCESSING') return;
-    const interval = setInterval(() => { refreshUser(); }, 2000);
+    const interval = setInterval(() => { refreshUser(); }, 800); // fast poll: catch result within ~1s of completion
     return () => clearInterval(interval);
   }, [user.ocrStatus, refreshUser]);
 
@@ -67,8 +67,8 @@ export default function StepWizard({ user, refreshUser }) {
     isSubmittingRef.current = true;
 
     // Simulate progression of text states for UX while waiting for queue
-    const ocrTimer = setTimeout(() => setUploadState(prev => prev === 'uploading' ? 'ocr' : prev), 1500);
-    const aiTimer = setTimeout(() => setUploadState(prev => (prev === 'ocr' || prev === 'uploading') ? 'ai' : prev), 3000);
+    const ocrTimer = setTimeout(() => setUploadState(prev => prev === 'uploading' ? 'ocr' : prev), 700);
+    const aiTimer = setTimeout(() => setUploadState(prev => (prev === 'ocr' || prev === 'uploading') ? 'ai' : prev), 1800);
 
     const fd = new FormData();
     fd.append('stepId', user.currentStep);
@@ -277,7 +277,7 @@ export default function StepWizard({ user, refreshUser }) {
               <p style={{ color: 'var(--txt-muted)', fontSize: '16px', lineHeight: '1.6', margin: '0 auto 40px', maxWidth: '440px' }}>
                 {uploadState === 'uploading' && 'Securely transferring your image file to the course ingestion service in MongoDB.'}
                 {uploadState === 'ocr' && 'Optical Character Recognition processing your snapshot to identify proof metrics.'}
-                {uploadState === 'ai' && 'Checking your telemetry against the step requirements in the background queue. It takes 5-15 seconds!'}
+                {uploadState === 'ai' && 'Verifying your screenshot against the step requirements...'}
                 {uploadState === 'success' && 'Your proof has been validated autonomously. You are cleared for the next stage.'}
                 {uploadState === 'error' && error}
               </p>
