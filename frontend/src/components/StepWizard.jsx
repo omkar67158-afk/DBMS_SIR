@@ -159,7 +159,8 @@ export default function StepWizard({ user, refreshUser }) {
 
                 <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                   <button className="btn btn-primary" onClick={handleSubmit}
-                    style={{ padding: '12px 28px', gap: '8px', minWidth: '180px' }}>
+                    disabled={!!uploadState || isAwaitingQueue}
+                    style={{ padding: '12px 28px', gap: '8px', minWidth: '180px', opacity: (!!uploadState || isAwaitingQueue) ? 0.5 : 1, cursor: (!!uploadState || isAwaitingQueue) ? 'not-allowed' : 'pointer' }}>
                     Submit to AI <ArrowRight size={15} />
                   </button>
                 </div>
