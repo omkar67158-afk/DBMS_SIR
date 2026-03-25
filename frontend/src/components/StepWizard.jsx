@@ -331,7 +331,7 @@ export default function StepWizard({ user, refreshUser }) {
                         minWidth: '180px', justifyContent: 'center',
                       }}
                     >
-                      Submit to AI <ArrowRight size={15} />
+                      Submit <ArrowRight size={15} />
                     </motion.button>
                   </div>
                 </div>
