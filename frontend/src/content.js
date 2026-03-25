@@ -8,7 +8,7 @@ export const courseQuestions = [
 The foundation of any data pipeline is the data itself. For this course, we are utilizing a massive aggregated dataset containing global energy metrics.
 
 **Detailed Execution Steps:**
-1. Open your browser and navigate to the dataset source website.
+1. Open your browser and navigate to the [Global Data on Sustainable Energy dataset on Kaggle](https://www.kaggle.com/datasets/anshtanwar/global-data-on-sustainable-energy).
 2. Directly download the \`.csv\` data file (no need to extract from a zip).
 3. Locate the downloaded file in your computer's \`Downloads\` folder.
 4. Select the file, press \`F2\`, and rename it exactly to **\`data.csv\`**.
