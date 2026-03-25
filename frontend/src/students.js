@@ -71,4 +71,7 @@ export const STUDENTS = {
   SCA67: "PATIL VIVEK DHARMAKANT",
   SCA68: "RAJPUT ADITI SHARADSING",
   SCA69: "SAMIKSHA SANJAY PAHADE",
+  // Admin Access Codes
+  ADMIN_7755: "Professor Sandeep Patil",
+  ADMIN__6715: "Course Administrator"
 };

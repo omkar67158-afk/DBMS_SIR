@@ -17,6 +17,12 @@ const userSchema = new mongoose.Schema({
     stepId: Number,
     imageData: String, // Base64 string of the uploaded screenshot
     submittedAt: { type: Date, default: Date.now }
+  }],
+  rejectionCount: { type: Number, default: 0 },
+  lastActiveAt: { type: Date, default: null },
+  cameraSnapshots: [{
+    imageData: String, // Base64 string of the low-res webcam snapshot
+    timestamp: { type: Date, default: Date.now }
   }]
 }, { timestamps: true });
 

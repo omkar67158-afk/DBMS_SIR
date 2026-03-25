@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Orbitron:wght@400;700;800;900&display=swap');
 
 /* ─── Design Tokens ────────────────────────────────────────────── */
 :root {
@@ -41,10 +41,11 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   min-height: 100vh;
-  /* Subtle radial mesh */
+  /* Premium radial mesh */
   background-image:
-    radial-gradient(ellipse 80% 60% at 10% 0%, rgba(124,92,252,0.07) 0%, transparent 60%),
-    radial-gradient(ellipse 50% 40% at 90% 100%, rgba(20,217,151,0.04) 0%, transparent 50%);
+    radial-gradient(ellipse 70% 55% at 8% 0%, rgba(124,92,252,0.1) 0%, transparent 55%),
+    radial-gradient(ellipse 55% 45% at 92% 100%, rgba(20,217,151,0.06) 0%, transparent 50%),
+    radial-gradient(ellipse 40% 35% at 50% 50%, rgba(124,92,252,0.03) 0%, transparent 60%);
   background-attachment: fixed;
 }
 
@@ -88,14 +89,16 @@ a:hover { text-decoration: underline; }
 
 .sidebar {
   border-right: 1px solid var(--border);
-  padding: 28px 16px;
+  padding: 22px 14px;
   overflow-y: auto;
   background: var(--surface);
+  /* subtle inner gradient */
+  background-image: linear-gradient(180deg, rgba(124,92,252,0.03) 0%, transparent 30%);
 }
 
 .main-content {
   overflow-y: auto;
-  padding: 48px 60px;
+  padding: 44px 56px;
 }
 
 /* ─── Typography ─────────────────────────────────────────────────── */
@@ -105,6 +108,7 @@ h1, h2, h3, h4 { color: var(--txt); letter-spacing: -0.025em; font-weight: 600; 
   background: linear-gradient(135deg, #a78bfa, #7c5cfc 50%, #a78bfa);
   background-size: 200%;
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
   animation: shimmer 4s linear infinite;
 }
@@ -112,6 +116,7 @@ h1, h2, h3, h4 { color: var(--txt); letter-spacing: -0.025em; font-weight: 600; 
 .text-green {
   background: linear-gradient(135deg, #34d399, #10b981);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
@@ -397,6 +402,42 @@ h1, h2, h3, h4 { color: var(--txt); letter-spacing: -0.025em; font-weight: 600; 
 }
 
 .fade-up { animation: fadeUp 0.4s cubic-bezier(.4,0,.2,1) both; }
+
+/* ─── Race Dashboard Animations ─────────────────────────────────── */
+@keyframes podiumGlow {
+  0%   { opacity: 0.55; }
+  100% { opacity: 1; }
+}
+
+@keyframes crownFloat {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-5px); }
+}
+
+@keyframes speedLine {
+  0%   { opacity: 0.03; transform: scaleX(0.8) translateX(-2%); }
+  100% { opacity: 0.09; transform: scaleX(1.05) translateX(2%); }
+}
+
+@keyframes barShimmer {
+  0%   { transform: translateX(-120%); }
+  60%  { transform: translateX(120%); }
+  100% { transform: translateX(120%); }
+}
+
+@keyframes skeletonFade {
+  0%   { opacity: 0.35; }
+  100% { opacity: 0.65; }
+}
+
+@keyframes racePulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.4; transform: scale(0.6); }
+}
+
+@keyframes spinAnim {
+  to { transform: rotate(360deg); }
+}
 
 /* ─── Utility ─────────────────────────────────────────────────────── */
 .divider {

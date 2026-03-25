@@ -385,6 +385,72 @@ app.get('/api/leaderboard', requireAuth, async (req, res) => {
   }
 });
 
+// 6. Admin Authentication Middleware
+const requireAdmin = async (req, res, next) => {
+  await requireAuth(req, res, async () => {
+    try {
+      const user = await User.findById(req.userId);
+      if (!user || (user.rollNumber !== 'ADMIN_7755' && user.rollNumber !== 'ADMIN__6715')) {
+        return res.status(403).json({ error: 'Admin access required' });
+      }
+      next();
+    } catch (err) {
+      res.status(500).json({ error: 'Internal Server Error' });
+    }
+  });
+};
+
+// 7. Admin Dashboard Data
+app.get('/api/admin/dashboard', requireAdmin, async (req, res) => {
+  try {
+    const users = await User.find(
+      { rollNumber: { $exists: true, $ne: null } },
+      'name email officialName rollNumber currentStep ocrStatus ocrFeedback isCompleted completedAt rejectionCount submissions cameraSnapshots lastActiveAt'
+    ).sort({ currentStep: -1, lastActiveAt: -1 });
+
+    const stats = {
+      totalStudents: users.filter(u => !u.rollNumber.startsWith('ADMIN_')).length,
+      completedStudents: users.filter(u => u.isCompleted && !u.rollNumber.startsWith('ADMIN_')).length,
+      activeNow: users.filter(u => u.lastActiveAt && (new Date() - new Date(u.lastActiveAt)) < 5 * 60 * 1000).length // Active in last 5 mins
+    };
+
+    res.json({ stats, users });
+  } catch (error) {
+    console.error('Admin Dashboard Error:', error);
+    res.status(500).json({ error: 'Failed to fetch admin dashboard data' });
+  }
+});
+
+// 8. Tracking Ping (Webcam Snapshot Upload)
+app.post('/api/tracking/ping', requireAuth, async (req, res) => {
+  try {
+    const { imageData } = req.body;
+    
+    // Base update: just mark them active
+    const updatePayload = { lastActiveAt: new Date() };
+
+    // If a webcam snapshot was attached and the user hasn't finished everything, keep a log
+    const user = await User.findById(req.userId);
+    if (!user) return res.status(404).json({ error: 'Not found' });
+
+    if (imageData && !user.rollNumber?.startsWith('ADMIN_') && !user.isCompleted) {
+      // Keep only the last 20 snapshots to avoid bloating the DB document over time
+      const snapshots = user.cameraSnapshots || [];
+      if (snapshots.length >= 20) {
+        snapshots.shift(); // Remove oldest
+      }
+      snapshots.push({ imageData, timestamp: new Date() });
+      updatePayload.cameraSnapshots = snapshots;
+    }
+
+    await User.findByIdAndUpdate(req.userId, updatePayload);
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Tracking Error:', error);
+    res.status(500).json({ error: 'Tracking ping failed' });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Backend server running on port ${PORT}`);
 });
