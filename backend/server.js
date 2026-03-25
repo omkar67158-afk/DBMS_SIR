@@ -407,7 +407,7 @@ app.get('/api/admin/dashboard', requireAdmin, async (req, res) => {
   try {
     const users = await User.find(
       { rollNumber: { $exists: true, $ne: null } },
-      'name email officialName rollNumber currentStep ocrStatus ocrFeedback isCompleted completedAt rejectionCount submissions'
+      'name email picture officialName rollNumber currentStep ocrStatus ocrFeedback isCompleted completedAt rejectionCount submissions'
     ).sort({ currentStep: -1 });
 
     const stats = {

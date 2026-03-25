@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Users, CheckCircle2, Search, Image as ImageIcon, ShieldAlert, X, Zap, ArrowRight } from 'lucide-react';
+import { Users, CheckCircle2, Search, Image as ImageIcon, ShieldAlert, LogOut, ZoomIn, X } from 'lucide-react';
 import axios from 'axios';
 import { courseQuestions } from '../content';
 
@@ -9,7 +9,7 @@ export default function AdminDashboard({ onLogout }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
-  const [selectedUser, setSelectedUser] = useState(null);
+  const [modalUser, setModalUser] = useState(null);
 
   useEffect(() => {
     let interval;
@@ -22,10 +22,12 @@ export default function AdminDashboard({ onLogout }) {
         setData(res.data);
         setError('');
         
-        if (selectedUser) {
-          const updated = res.data.users.find(u => u._id === selectedUser._id);
-          if (updated) setSelectedUser(updated);
-        }
+        // Update modal data if open
+        setModalUser(prev => {
+          if (!prev) return null;
+          const updated = res.data.users.find(u => u._id === prev._id);
+          return updated || prev;
+        });
       } catch (err) {
         setError('Failed to fetch admin data. Session may have expired.');
       } finally {
@@ -36,7 +38,7 @@ export default function AdminDashboard({ onLogout }) {
     fetchDashboard();
     interval = setInterval(fetchDashboard, 5000);
     return () => clearInterval(interval);
-  }, [selectedUser]);
+  }, []);
 
   if (loading && !data) return (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', flexDirection: 'column', gap: '16px' }}>
@@ -54,7 +56,7 @@ export default function AdminDashboard({ onLogout }) {
     </div>
   );
 
-  const users = data.users.filter(u => !u.rollNumber.startsWith('ADMIN_'));
+  const users = data.users.filter(u => !u.rollNumber?.startsWith('ADMIN_'));
   const filtered = users.filter(u => 
     u.name.toLowerCase().includes(search.toLowerCase()) || 
     u.rollNumber.toLowerCase().includes(search.toLowerCase())
@@ -63,7 +65,7 @@ export default function AdminDashboard({ onLogout }) {
   const totalSteps = courseQuestions.length;
 
   return (
-    <div className="app-shell" style={{ display: 'block', height: '100vh', overflow: 'hidden' }}>
+    <div className="app-shell" style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
       
       {/* ══════════════ PREMIUM ADMIN TOP BAR ══════════════ */}
       <header className="app-topbar" style={{ position: 'relative', zIndex: 10 }}>
@@ -87,23 +89,41 @@ export default function AdminDashboard({ onLogout }) {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
-          <div style={{ display: 'flex', gap: '16px', borderRight: '1px solid rgba(255,255,255,0.08)', paddingRight: '24px' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+          <div style={{ position: 'relative', width: '280px' }}>
+            <Search size={14} color="var(--brand)" style={{ position: 'absolute', left: '12px', top: '10px' }} />
+            <input 
+              value={search} onChange={e => setSearch(e.target.value)}
+              placeholder="Search students..."
+              style={{ 
+                width: '100%', boxSizing: 'border-box', 
+                background: 'rgba(124,92,252,0.06)', border: '1px solid rgba(124,92,252,0.2)', 
+                borderRadius: '8px', padding: '8px 16px 8px 36px', 
+                color: '#fff', outline: 'none', fontSize: '12px',
+                transition: 'border-color 0.2s, box-shadow 0.2s',
+              }}
+              onFocus={e => { e.currentTarget.style.borderColor = 'var(--brand)'; e.currentTarget.style.boxShadow = '0 0 0 2px rgba(124,92,252,0.2)'; }}
+              onBlur={e => { e.currentTarget.style.borderColor = 'rgba(124,92,252,0.2)'; e.currentTarget.style.boxShadow = 'none'; }}
+            />
+          </div>
+
+          <div style={{ display: 'flex', gap: '16px', borderLeft: '1px solid rgba(255,255,255,0.08)', paddingLeft: '24px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
               <div style={{ fontFamily: '"Orbitron","Courier New",monospace', fontSize: '16px', fontWeight: '700', color: '#fff', lineHeight: 1 }}>{data.stats.totalStudents}</div>
-              <div style={{ fontSize: '9px', color: 'var(--txt-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '4px' }}>Total Enrolled</div>
+              <div style={{ fontSize: '9px', color: 'var(--txt-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '4px' }}>Enrolled</div>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
               <div style={{ fontFamily: '"Orbitron","Courier New",monospace', fontSize: '16px', fontWeight: '700', color: 'var(--green)', lineHeight: 1 }}>{data.stats.completedStudents}</div>
               <div style={{ fontSize: '9px', color: 'var(--txt-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '4px' }}>Completed</div>
             </div>
           </div>
+          
           <button
             onClick={() => { localStorage.removeItem('token'); window.location.reload(); }}
             style={{
               display: 'flex', alignItems: 'center', gap: '6px',
               padding: '6px 12px', fontSize: '12px', fontWeight: '600',
               borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)',
-              background: 'transparent', cursor: 'pointer',
+              background: 'transparent', cursor: 'pointer', marginLeft: '12px',
               color: 'var(--txt-muted)', transition: 'all 0.18s',
             }}
             onMouseEnter={e => { e.currentTarget.style.background = 'rgba(248,113,113,0.08)'; e.currentTarget.style.color = '#f87171'; e.currentTarget.style.borderColor = 'rgba(248,113,113,0.25)'; }}
@@ -114,230 +134,174 @@ export default function AdminDashboard({ onLogout }) {
         </div>
       </header>
 
-      {/* ══════════════ DASHBOARD BODY ══════════════ */}
-      <main style={{ display: 'flex', height: 'calc(100vh - 61px)', width: '100%', overflow: 'hidden' }}>
+      {/* ══════════════ DASHBOARD GRID BODY ══════════════ */}
+      <main style={{ flex: 1, overflowY: 'auto', padding: '32px 40px', background: 'transparent' }}>
         
-        {/* Left: Master Roster */}
         <div style={{ 
-          width: '400px', flexShrink: 0, borderRight: '1px solid var(--border)', 
-          background: 'rgba(255,255,255,0.01)', display: 'flex', flexDirection: 'column',
-          backdropFilter: 'blur(10px)'
+          display: 'grid', 
+          gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', 
+          gap: '24px',
         }}>
-          {/* Search Header */}
-          <div style={{ padding: '20px 24px', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-            <div style={{ position: 'relative' }}>
-              <Search size={16} color="var(--brand)" style={{ position: 'absolute', left: '14px', top: '12px' }} />
-              <input 
-                value={search} onChange={e => setSearch(e.target.value)}
-                placeholder="Search students..."
-                style={{ 
-                  width: '100%', boxSizing: 'border-box', 
-                  background: 'rgba(124,92,252,0.06)', border: '1px solid rgba(124,92,252,0.2)', 
-                  borderRadius: '10px', padding: '10px 16px 10px 40px', 
-                  color: '#fff', outline: 'none', fontSize: '13px',
-                  transition: 'border-color 0.2s, box-shadow 0.2s',
-                }}
-                onFocus={e => { e.currentTarget.style.borderColor = 'var(--brand)'; e.currentTarget.style.boxShadow = '0 0 0 2px rgba(124,92,252,0.2)'; }}
-                onBlur={e => { e.currentTarget.style.borderColor = 'rgba(124,92,252,0.2)'; e.currentTarget.style.boxShadow = 'none'; }}
-              />
-            </div>
-          </div>
-
-          {/* Roster List */}
-          <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px' }}>
-            {filtered.map(u => {
-              const netScore = Math.max(0, (u.currentStep - 1)) * 100 - (u.rejectionCount * 25);
-              const scorePct = Math.round((netScore / (totalSteps * 100)) * 100);
-              const isSelected = selectedUser?._id === u._id;
-              
-              return (
-                <div 
-                  key={u._id}
-                  onClick={() => setSelectedUser(u)}
-                  style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    padding: '14px 16px', borderRadius: '12px', cursor: 'pointer',
-                    background: isSelected ? 'linear-gradient(135deg, rgba(124,92,252,0.12) 0%, rgba(124,92,252,0.04) 100%)' : 'transparent',
-                    border: isSelected ? '1px solid rgba(124,92,252,0.3)' : '1px solid transparent',
-                    marginBottom: '4px', transition: 'all 0.2s',
-                    position: 'relative', overflow: 'hidden'
-                  }}
-                  onMouseEnter={e => { if(!isSelected) e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; }}
-                  onMouseLeave={e => { if(!isSelected) e.currentTarget.style.background = 'transparent'; }}
-                >
-                  {isSelected && <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '3px', background: 'var(--brand)', boxShadow: '0 0 8px var(--brand)' }} />}
-                  
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div style={{ 
-                      width: '36px', height: '36px', borderRadius: '10px', 
-                      background: isSelected ? 'linear-gradient(135deg, #7c5cfc, #a78bfa)' : 'rgba(255,255,255,0.05)', 
-                      border: isSelected ? 'none' : '1px solid rgba(255,255,255,0.1)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', 
-                      fontSize: '13px', fontWeight: '700', color: isSelected ? '#fff' : 'var(--txt-muted)',
-                      boxShadow: isSelected ? '0 0 12px rgba(124,92,252,0.4)' : 'none'
-                    }}>
-                      {u.name.substring(0,2).toUpperCase()}
-                    </div>
-                    <div>
-                      <div style={{ fontWeight: '600', fontSize: '14px', color: isSelected ? '#fff' : 'var(--txt)', marginBottom: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '170px' }}>
-                        {u.name}
-                      </div>
-                      <div style={{ fontSize: '11px', color: isSelected ? '#a78bfa' : 'var(--txt-faint)', fontWeight: '500', letterSpacing: '0.04em' }}>
-                        {u.rollNumber}
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div style={{ textAlign: 'right' }}>
-                    {u.isCompleted ? (
-                      <div style={{ fontSize: '11px', color: 'var(--green)', fontWeight: '700', background: 'var(--green-fade)', padding: '2px 8px', borderRadius: '12px', border: '1px solid rgba(20,217,151,0.2)' }}>
-                        GRADUATE
-                      </div>
-                    ) : (
-                      <>
-                        <div style={{ fontSize: '11px', color: 'var(--brand)', fontWeight: '700', marginBottom: '2px' }}>STEP {u.currentStep}</div>
-                        <div style={{ fontSize: '10px', color: 'var(--txt-faint)', fontFamily: '"Orbitron","Courier New",monospace' }}>{scorePct}%</div>
-                      </>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Right: Detailed Deep Dive Panel */}
-        <div style={{ flex: 1, position: 'relative', overflowY: 'auto', background: 'transparent' }}>
-          <AnimatePresence mode="wait">
-            {selectedUser ? (
+          {filtered.map((u, i) => {
+            const netScore = Math.max(0, (u.currentStep - 1)) * 100 - (u.rejectionCount * 25);
+            const scorePct = Math.round((netScore / (totalSteps * 100)) * 100);
+            
+            return (
               <motion.div 
-                key="student-detail"
-                initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
-                transition={{ duration: 0.3 }}
-                style={{ padding: '40px 56px', maxWidth: '800px', margin: '0 auto' }}
+                key={u._id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: i * 0.03 }}
+                style={{
+                  background: 'rgba(255,255,255,0.02)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  borderRadius: '16px', padding: '20px',
+                  display: 'flex', flexDirection: 'column', gap: '16px',
+                  boxShadow: '0 4px 16px rgba(0,0,0,0.1)',
+                  backdropFilter: 'blur(10px)',
+                  position: 'relative', overflow: 'hidden'
+                }}
               >
-                {/* Header Card */}
-                <div style={{ 
-                  background: 'linear-gradient(135deg, rgba(124,92,252,0.08) 0%, rgba(20,217,151,0.03) 100%)',
-                  borderRadius: '20px', padding: '32px', border: '1px solid rgba(124,92,252,0.2)',
-                  marginBottom: '32px', position: 'relative', overflow: 'hidden',
-                  boxShadow: '0 8px 32px -8px rgba(0,0,0,0.4)',
-                  backdropFilter: 'blur(12px)'
-                }}>
-                  <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', background: 'linear-gradient(90deg, #7c5cfc, #14d997)' }} />
-                  
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
+                {/* Visual Top Glow */}
+                <div style={{ position: 'absolute', top: 0, left: '20%', right: '20%', height: '1px', background: 'linear-gradient(90deg, transparent, rgba(124,92,252,0.5), transparent)' }} />
+                
+                {/* Top Row: Google Auth Picture + Name */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                  <div style={{ position: 'relative' }}>
+                    {u.picture ? (
+                      <img src={u.picture} alt={u.name} style={{ width: '48px', height: '48px', borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(255,255,255,0.1)' }} />
+                    ) : (
                       <div style={{ 
-                        width: '72px', height: '72px', borderRadius: '18px', 
-                        background: 'linear-gradient(135deg, #7c5cfc, #5b3fe0)', 
+                        width: '48px', height: '48px', borderRadius: '50%', 
+                        background: 'linear-gradient(135deg, #7c5cfc, #a78bfa)', 
                         display: 'flex', alignItems: 'center', justifyContent: 'center', 
-                        fontSize: '28px', fontWeight: '800', color: '#fff',
-                        boxShadow: '0 0 24px rgba(124,92,252,0.5)'
+                        fontSize: '16px', fontWeight: '700', color: '#fff',
+                        border: '2px solid rgba(255,255,255,0.1)'
                       }}>
-                        {selectedUser.name.substring(0,2).toUpperCase()}
+                        {u.name.substring(0,2).toUpperCase()}
                       </div>
-                      <div>
-                        <h2 style={{ fontSize: '28px', fontWeight: '800', margin: '0 0 4px', letterSpacing: '-0.02em', color: '#fff' }}>{selectedUser.name}</h2>
-                        <div style={{ color: 'var(--txt-muted)', fontSize: '14px', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ color: '#a78bfa', letterSpacing: '0.05em' }}>{selectedUser.rollNumber}</span>
-                          <span>•</span>
-                          <span>{selectedUser.email}</span>
-                        </div>
-                      </div>
+                    )}
+                    {/* Status Badge */}
+                    <div style={{ position: 'absolute', bottom: -4, right: -4, width: '18px', height: '18px', borderRadius: '50%', background: '#050507', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: u.isCompleted ? 'var(--green)' : 'var(--brand)', boxShadow: `0 0 6px ${u.isCompleted ? 'var(--green)' : 'var(--brand)'}` }} />
                     </div>
-                    
-                    <button onClick={() => setSelectedUser(null)} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--txt-muted)', cursor: 'pointer', padding: '8px', borderRadius: '10px', transition: 'all 0.2s' }} onMouseEnter={e => e.currentTarget.style.color = '#fff'} onMouseLeave={e => e.currentTarget.style.color = 'var(--txt-muted)'}>
-                      <X size={20} />
-                    </button>
                   </div>
 
-                  <div style={{ height: '1px', background: 'rgba(255,255,255,0.06)', margin: '24px 0' }} />
-
-                  {/* Quick Stats Grid */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
-                    <div>
-                      <div style={{ fontSize: '11px', color: 'var(--txt-faint)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Current Phase</div>
-                      <div style={{ fontSize: '16px', fontWeight: '700', color: selectedUser.isCompleted ? 'var(--green)' : '#fff' }}>
-                        {selectedUser.isCompleted ? 'Course Completed' : `Step ${selectedUser.currentStep} of ${totalSteps}`}
-                      </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: '700', fontSize: '16px', color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {u.name}
                     </div>
-                    <div>
-                      <div style={{ fontSize: '11px', color: 'var(--txt-faint)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>AI Rejections</div>
-                      <div style={{ fontSize: '16px', fontWeight: '700', color: selectedUser.rejectionCount > 0 ? '#f87171' : 'var(--txt-muted)' }}>
-                        {selectedUser.rejectionCount} Penalties
-                      </div>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '11px', color: 'var(--txt-faint)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Processing Status</div>
-                      <div style={{ fontSize: '13px', fontWeight: '600', color: selectedUser.ocrStatus === 'PROCESSING' ? '#fbbf24' : selectedUser.ocrStatus === 'REJECTED' ? '#f87171' : 'var(--txt-muted)', background: 'rgba(255,255,255,0.04)', display: 'inline-flex', padding: '4px 10px', borderRadius: '8px' }}>
-                        {selectedUser.ocrStatus}
-                      </div>
+                    <div style={{ fontSize: '12px', color: 'var(--txt-faint)', letterSpacing: '0.04em', fontFamily: 'monospace' }}>
+                      {u.rollNumber}
                     </div>
                   </div>
                 </div>
 
-                {/* Verification Evidence Gallery */}
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
-                    <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(20,217,151,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(20,217,151,0.3)' }}>
-                      <ImageIcon size={16} color="var(--green)" />
+                {/* Second Row: Stats & Progress */}
+                <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: '11px', color: 'var(--txt-muted)', textTransform: 'uppercase', fontWeight: '600' }}>
+                      <span>{u.isCompleted ? 'Course Graduated' : `Step ${u.currentStep} of ${totalSteps}`}</span>
+                      <span style={{ fontFamily: '"Orbitron","Courier New",monospace', color: u.isCompleted ? 'var(--green)' : '#a78bfa' }}>{scorePct}%</span>
                     </div>
-                    <h3 style={{ fontSize: '18px', fontWeight: '700', margin: 0, color: '#fff' }}>Verification Evidence</h3>
+                    <div style={{ height: '6px', background: 'rgba(255,255,255,0.06)', borderRadius: '3px', overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: `${Math.min(100, Math.max(0, (u.currentStep - 1) / totalSteps * 100))}%`, background: u.isCompleted ? 'var(--green)' : 'linear-gradient(90deg, #7c5cfc, #a78bfa)', borderRadius: '3px', transition: 'width 0.5s ease-out' }} />
+                    </div>
                   </div>
-
-                  {selectedUser.submissions && selectedUser.submissions.length > 0 ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                      {selectedUser.submissions.map((sub, i) => (
-                        <div key={i} style={{ 
-                          background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', 
-                          borderRadius: '16px', overflow: 'hidden', backdropFilter: 'blur(8px)',
-                          boxShadow: '0 4px 16px rgba(0,0,0,0.2)'
-                        }}>
-                          <div style={{ 
-                            padding: '14px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', 
-                            background: 'rgba(255,255,255,0.02)', display: 'flex', justifyContent: 'space-between', alignItems: 'center'
-                          }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <CheckCircle2 size={16} color="var(--green)" />
-                              <span style={{ fontWeight: '700', color: '#fff', fontSize: '14px' }}>Step {sub.stepId} Passed</span>
-                            </div>
-                            <span style={{ color: 'var(--txt-faint)', fontSize: '12px', fontWeight: '500' }}>{new Date(sub.submittedAt).toLocaleString()}</span>
-                          </div>
-                          <div style={{ padding: '24px', display: 'flex', justifyContent: 'center', background: 'rgba(0,0,0,0.3)' }}>
-                            <img src={sub.imageData} alt={`Step ${sub.stepId}`} style={{ maxWidth: '100%', maxHeight: '500px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', cursor: 'zoom-in' }} onClick={(e) => { if(e.target.style.maxHeight==='500px') { e.target.style.maxHeight='none'; e.target.style.cursor='zoom-out'; } else { e.target.style.maxHeight='500px'; e.target.style.cursor='zoom-in'; } }} />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div style={{ padding: '60px 40px', textAlign: 'center', border: '1px dashed rgba(255,255,255,0.1)', borderRadius: '16px', background: 'rgba(255,255,255,0.01)' }}>
-                      <ImageIcon size={32} color="rgba(255,255,255,0.1)" style={{ marginBottom: '16px' }} />
-                      <div style={{ color: 'var(--txt-muted)', fontSize: '14px', fontWeight: '500' }}>No verification screenshots uploaded yet.</div>
-                      <div style={{ color: 'var(--txt-faint)', fontSize: '13px', marginTop: '4px' }}>When the student submits proof, it will appear chronologically here.</div>
+                  
+                  {u.rejectionCount > 0 && (
+                    <div style={{ marginLeft: '12px', background: 'rgba(248,113,113,0.1)', padding: '4px 8px', borderRadius: '6px', border: '1px solid rgba(248,113,113,0.2)', color: '#f87171', fontSize: '11px', fontWeight: '600' }}>
+                      {u.rejectionCount} FLAGS
                     </div>
                   )}
                 </div>
 
+                {/* Third Row: Evidence Button */}
+                <button 
+                  onClick={() => setModalUser(u)}
+                  style={{ 
+                    marginTop: '4px', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                    background: 'rgba(255,255,255,0.03)', border: '1px dashed rgba(255,255,255,0.15)',
+                    padding: '8px', borderRadius: '8px', cursor: 'pointer', color: 'var(--txt-muted)', fontSize: '12px', fontWeight: '600', transition: 'all 0.2s'
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.3)'; e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.color = 'var(--txt-muted)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)'; e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; }}
+                >
+                  <ImageIcon size={14} /> View Evidence ({u.submissions?.length || 0})
+                </button>
+
               </motion.div>
-            ) : (
-              <motion.div 
-                key="empty"
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '40px' }}
-              >
-                <div style={{ width: '80px', height: '80px', borderRadius: '24px', background: 'linear-gradient(135deg, rgba(124,92,252,0.1), rgba(20,217,151,0.05))', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px', border: '1px solid rgba(124,92,252,0.15)' }}>
-                  <Users size={36} color="var(--brand)" opacity={0.8} />
-                </div>
-                <h3 style={{ fontSize: '24px', fontWeight: '800', color: '#fff', margin: '0 0 12px', letterSpacing: '-0.02em' }}>Select a Student Profile</h3>
-                <p style={{ color: 'var(--txt-muted)', fontSize: '15px', lineHeight: 1.6, maxWidth: '400px', margin: 0 }}>
-                  Click on any enrolled student from the master roster to view their detailed timeline, progression stats, and AI-verified screenshot evidence.
-                </p>
-              </motion.div>
-            )}
-          </AnimatePresence>
+            );
+          })}
         </div>
+
       </main>
+
+      {/* ══════════════ EVIDENCE MODAL ══════════════ */}
+      <AnimatePresence>
+        {modalUser && (
+          <motion.div 
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            style={{ 
+              position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px'
+            }}
+            onClick={() => setModalUser(null)}
+          >
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+              onClick={e => e.stopPropagation()}
+              style={{ 
+                background: '#050507', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '24px', 
+                width: '100%', maxWidth: '900px', maxHeight: '100%', display: 'flex', flexDirection: 'column',
+                boxShadow: '0 24px 48px rgba(0,0,0,0.6)'
+              }}
+            >
+              <div style={{ padding: '24px 32px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  {modalUser.picture ? (
+                    <img src={modalUser.picture} alt="" style={{ width: '40px', height: '40px', borderRadius: '50%' }} />
+                  ) : <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#7c5cfc' }} />}
+                  <div>
+                    <h2 style={{ fontSize: '20px', fontWeight: '800', margin: 0, color: '#fff' }}>{modalUser.name}</h2>
+                    <div style={{ color: 'var(--txt-faint)', fontSize: '13px' }}>{modalUser.rollNumber} • {modalUser.email}</div>
+                  </div>
+                </div>
+                <button onClick={() => setModalUser(null)} style={{ background: 'rgba(255,255,255,0.05)', border: 'none', color: '#fff', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div style={{ flex: 1, overflowY: 'auto', padding: '32px' }}>
+                {modalUser.submissions && modalUser.submissions.length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                    {modalUser.submissions.map((sub, i) => (
+                      <div key={i} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '16px', overflow: 'hidden' }}>
+                        <div style={{ padding: '14px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <CheckCircle2 size={16} color="var(--green)" />
+                            <span style={{ fontWeight: '700', color: '#fff', fontSize: '14px' }}>Step {sub.stepId} Verification</span>
+                          </div>
+                          <span style={{ color: 'var(--txt-faint)', fontSize: '12px', fontWeight: '500' }}>{new Date(sub.submittedAt).toLocaleString()}</span>
+                        </div>
+                        <div style={{ padding: '24px', display: 'flex', justifyContent: 'center', background: 'rgba(0,0,0,0.5)' }}>
+                          <img src={sub.imageData} alt={`Step ${sub.stepId}`} style={{ maxWidth: '100%', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{ padding: '60px 40px', textAlign: 'center', color: 'var(--txt-muted)' }}>
+                    <ImageIcon size={32} opacity={0.3} style={{ marginBottom: '16px' }} />
+                    <div>No screenshot evidence uploaded yet.</div>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 }
