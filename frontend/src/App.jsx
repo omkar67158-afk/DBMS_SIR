@@ -258,8 +258,7 @@ function App() {
       {/* ══════════════ BODY ══════════════ */}
       <AnimatePresence mode="wait">
         {!user ? (
-          <motion.div key="login" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+          <motion.div key="login" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <Login onLoginSuccess={(u) => setUser(u)} />
           </motion.div>
         ) : (

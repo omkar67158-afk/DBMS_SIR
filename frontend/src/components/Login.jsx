@@ -1,14 +1,20 @@
 import { useState } from 'react';
 import { GoogleLogin } from '@react-oauth/google';
 import { motion } from 'framer-motion';
-import { Database, Shield, BookOpen, CheckCircle2, CloudUpload, Award } from 'lucide-react';
+import { Database, Shield, BookOpen, CheckCircle2, CloudUpload, Award, ArrowRight } from 'lucide-react';
 import axios from 'axios';
 
 const features = [
   { icon: BookOpen,     text: 'Step-by-step guided labs with detailed instructions' },
   { icon: CloudUpload,  text: 'Screenshot proof submitted directly to MongoDB Atlas' },
-  { icon: CheckCircle2, text: 'Your progress is saved automatically every step' },
+  { icon: CheckCircle2, text: 'Progress saved automatically at every step' },
   { icon: Award,        text: 'Earn a personalized digital certificate upon completion' },
+];
+
+const stats = [
+  { value: '8', label: 'Lab Steps' },
+  { value: 'AI', label: 'Verified' },
+  { value: '100%', label: 'Free' },
 ];
 
 export default function Login({ onLoginSuccess }) {
@@ -25,92 +31,130 @@ export default function Login({ onLoginSuccess }) {
   };
 
   return (
-    <div style={{
-      display: 'grid',
-      gridTemplateColumns: '1fr 1fr',
-      minHeight: 'calc(100vh - 60px)',
-      maxWidth: '1100px',
-      margin: '0 auto',
-      padding: '60px 40px',
-      gap: '80px',
-      alignItems: 'center',
-    }}>
+    <div className="login-root">
+      {/* Subtle background geometry */}
+      <div className="login-bg-geo" aria-hidden="true">
+        <div className="login-bg-circle login-bg-circle-1" />
+        <div className="login-bg-circle login-bg-circle-2" />
+        <div className="login-bg-grid" />
+      </div>
 
-      {/* ── LEFT: Branding Panel ── */}
-      <motion.div initial={{ opacity:0, x:-30 }} animate={{ opacity:1, x:0 }} transition={{ duration:0.5 }}>
-        <div style={{ display:'flex', alignItems:'center', gap:'12px', marginBottom:'32px' }}>
-          <div style={{ width:'44px', height:'44px', background:'linear-gradient(135deg,#7c5cfc,#5b3fe0)', borderRadius:'12px', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, boxShadow:'0 8px 24px rgba(124,92,252,0.4)', overflow:'hidden' }}>
-            <img src="/logo.png" alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+      <div className="login-grid">
+
+        {/* ══ LEFT PANEL ══ */}
+        <motion.div
+          className="login-left"
+          initial={{ opacity: 0, x: -24 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+        >
+          {/* Instructor badge */}
+          <div className="login-instructor">
+            <div className="login-logo-wrap">
+              <img src="/logo.png" alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            </div>
+            <div>
+              <div className="login-taught-by">Taught by</div>
+              <div className="login-instructor-name">Sandeep Patil</div>
+            </div>
           </div>
-          <div>
-            <div style={{ fontSize:'13px', fontWeight:'700', color:'var(--txt-muted)', letterSpacing:'0.08em', textTransform:'uppercase' }}>Taught by</div>
-            <div style={{ fontSize:'16px', fontWeight:'700', color:'var(--txt)', letterSpacing:'-0.01em' }}>Sandeep Patil</div>
+
+          {/* Course title */}
+          <div className="login-title-block">
+            <h1 className="login-h1">
+              Data Pipeline<br />
+              <span className="login-h1-accent">Masterclass</span>
+            </h1>
+            <p className="login-desc">
+              A complete course on acquiring Kaggle datasets, provisioning a MongoDB Atlas cluster,
+              and executing a production-ready ETL pipeline using Node.js.
+            </p>
           </div>
-        </div>
 
-        <h1 style={{ fontSize:'46px', fontWeight:'800', lineHeight:'1.15', letterSpacing:'-0.04em', marginBottom:'20px' }}>
-          Data Pipeline<br />
-          <span className="text-gradient">Masterclass</span>
-        </h1>
-        <p style={{ color:'var(--txt-muted)', fontSize:'16px', lineHeight:'1.75', marginBottom:'40px', maxWidth:'420px' }}>
-          A complete course on acquiring Kaggle datasets, provisioning a MongoDB Atlas cluster, and executing a production-ready ETL pipeline using Node.js.
-        </p>
-
-        <div style={{ display:'flex', flexDirection:'column', gap:'16px' }}>
-          {features.map(({ icon: Icon, text }) => (
-            <div key={text} style={{ display:'flex', alignItems:'center', gap:'14px' }}>
-              <div style={{ width:'34px', height:'34px', borderRadius:'8px', background:'var(--brand-fade)', border:'1px solid rgba(124,92,252,0.2)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                <Icon size={16} color="var(--brand)" />
+          {/* Stats row */}
+          <div className="login-stats">
+            {stats.map((s, i) => (
+              <div key={i} className="login-stat">
+                <div className="login-stat-value">{s.value}</div>
+                <div className="login-stat-label">{s.label}</div>
               </div>
-              <span style={{ fontSize:'14px', color:'var(--txt-muted)' }}>{text}</span>
-            </div>
-          ))}
-        </div>
-      </motion.div>
-
-      {/* ── RIGHT: Login Card ── */}
-      <motion.div initial={{ opacity:0, x:30 }} animate={{ opacity:1, x:0 }} transition={{ duration:0.5, delay:0.1 }}>
-        <div className="card" style={{ padding:'48px 40px' }}>
-
-          <div style={{ marginBottom:'28px' }}>
-            <h2 style={{ fontSize:'22px', fontWeight:'700', letterSpacing:'-0.03em', marginBottom:'8px' }}>
-              Continue as a Student
-            </h2>
-            <p style={{ color:'var(--txt-muted)', fontSize:'14px', lineHeight:'1.6' }}>
-              Sign in to save and track your pipeline verification progress.
-            </p>
+            ))}
           </div>
 
-          <div className="divider" />
+          {/* Feature list */}
+          <ul className="login-features">
+            {features.map(({ icon: Icon, text }) => (
+              <li key={text} className="login-feature-item">
+                <div className="login-feature-icon">
+                  <Icon size={14} strokeWidth={2} />
+                </div>
+                <span>{text}</span>
+              </li>
+            ))}
+          </ul>
+        </motion.div>
 
-          <div style={{ display:'flex', flexDirection:'column', gap:'12px', padding:'24px 0' }}>
-            <p style={{ fontSize:'11px', fontWeight:'700', textTransform:'uppercase', letterSpacing:'0.08em', color:'var(--txt-faint)', display:'flex', alignItems:'center', gap:'6px' }}>
-              <Shield size={11} /> Secure OAuth 2.0
-            </p>
-            <div style={{ display:'flex', justifyContent:'center', backgroundColor:'var(--surface)', padding:'12px', borderRadius:'var(--radius-md)', border:'1px solid var(--border)' }}>
-              <GoogleLogin
-                onSuccess={handleSuccess}
-                onError={() => setError('Google sign-in failed. Please try again.')}
-                theme="filled_black" shape="rectangular" width="320" text="continue_with"
-              />
+        {/* ══ RIGHT PANEL ══ */}
+        <motion.div
+          className="login-right"
+          initial={{ opacity: 0, x: 24 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.55, delay: 0.08, ease: [0.16, 1, 0.3, 1] }}
+        >
+          <div className="login-card">
+            {/* Card header */}
+            <div className="login-card-header">
+              <div className="login-card-eyebrow">
+                <span className="login-card-dot" />
+                Student Portal
+              </div>
+              <h2 className="login-card-title">Continue as a Student</h2>
+              <p className="login-card-sub">
+                Sign in to save and track your pipeline verification progress.
+              </p>
             </div>
+
+            {/* Divider */}
+            <div className="login-card-divider" />
+
+            {/* OAuth section */}
+            <div className="login-oauth-section">
+              <div className="login-oauth-label">
+                <Shield size={11} strokeWidth={2.5} />
+                <span>Secure OAuth 2.0 — no password needed</span>
+              </div>
+
+              <div className="login-google-wrap">
+                <GoogleLogin
+                  onSuccess={handleSuccess}
+                  onError={() => setError('Google sign-in failed. Please try again.')}
+                  theme="filled_black"
+                  shape="rectangular"
+                  width="320"
+                  text="continue_with"
+                />
+              </div>
+            </div>
+
+            {/* Error */}
+            {error && (
+              <motion.div
+                className="login-error"
+                initial={{ opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
+              >
+                {error}
+              </motion.div>
+            )}
+
+            {/* Footer note */}
+            <p className="login-card-footer">
+              Your Google profile (name + email) is stored securely in MongoDB and is
+              only visible to Sandeep Patil.
+            </p>
           </div>
-
-          <div className="divider" />
-
-          {error && (
-            <motion.p initial={{ opacity:0 }} animate={{ opacity:1 }}
-              style={{ color:'var(--red)', background:'var(--red-fade)', border:'1px solid rgba(248,113,113,0.25)', borderRadius:'var(--radius-sm)', padding:'12px 14px', fontSize:'13px', marginTop:'16px', fontWeight:'500' }}
-            >
-              {error}
-            </motion.p>
-          )}
-
-          <p style={{ fontSize:'12px', color:'var(--txt-faint)', textAlign:'center', marginTop:'20px', lineHeight:'1.6' }}>
-            Your Google profile (name + email) is stored securely in MongoDB and only visible to Sandeep Patil.
-          </p>
-        </div>
-      </motion.div>
+        </motion.div>
+      </div>
     </div>
   );
 }
