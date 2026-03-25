@@ -35,7 +35,7 @@ function getTier(pct) {
     if (pct >= 90) return { label: 'ELITE', color: '#f59e0b', bg: 'rgba(245,158,11,0.08)', glow: 'rgba(245,158,11,0.3)', border: 'rgba(245,158,11,0.25)' };
     if (pct >= 70) return { label: 'ADVANCED', color: '#a78bfa', bg: 'rgba(167,139,250,0.08)', glow: 'rgba(167,139,250,0.25)', border: 'rgba(167,139,250,0.25)' };
     if (pct >= 40) return { label: 'RISING', color: '#38bdf8', bg: 'rgba(56,189,248,0.08)', glow: 'rgba(56,189,248,0.2)', border: 'rgba(56,189,248,0.2)' };
-    return { label: pct > 0 ? 'ACTIVE' : 'INACTIVE', color: '#6b7280', bg: 'rgba(107,114,128,0.06)', glow: 'transparent', border: 'rgba(107,114,128,0.18)' };
+    return { label: 'ACTIVE', color: '#6b7280', bg: 'rgba(107,114,128,0.06)', glow: 'transparent', border: 'rgba(107,114,128,0.18)' };
 }
 
 /* ── Animated Score Ring ── */
