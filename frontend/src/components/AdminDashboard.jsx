@@ -74,9 +74,9 @@ export default function AdminDashboard({ onLogout }) {
             width: '34px', height: '34px', borderRadius: '9px',
             background: 'linear-gradient(135deg, #7c5cfc, #a78bfa)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 0 16px rgba(124,92,252,0.45)', flexShrink: 0,
+            boxShadow: '0 0 16px rgba(124,92,252,0.45)', flexShrink: 0, overflow: 'hidden'
           }}>
-            <ShieldAlert size={17} color="#fff" />
+            <img src="/logo.png" alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
           <div>
             <div style={{ fontWeight: '700', fontSize: '14px', letterSpacing: '-0.02em', color: 'var(--txt)', lineHeight: 1.2 }}>

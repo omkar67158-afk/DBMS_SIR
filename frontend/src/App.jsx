@@ -100,9 +100,9 @@ function App() {
         width: '40px', height: '40px', borderRadius: '10px',
         background: 'linear-gradient(135deg, #7c5cfc, #a78bfa)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        boxShadow: '0 0 24px rgba(124,92,252,0.5)',
+        boxShadow: '0 0 24px rgba(124,92,252,0.5)', overflow: 'hidden'
       }}>
-        <Zap size={20} color="#fff" />
+        <img src="/logo.png" alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
       </div>
       <div className="spin" style={{ width: '20px', height: '20px', border: '2px solid rgba(255,255,255,0.08)', borderTopColor: 'var(--brand)', borderRadius: '50%' }} />
     </div>
@@ -138,9 +138,9 @@ function App() {
             width: '34px', height: '34px', borderRadius: '9px',
             background: 'linear-gradient(135deg, #7c5cfc, #a78bfa)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 0 16px rgba(124,92,252,0.45)', flexShrink: 0,
+            boxShadow: '0 0 16px rgba(124,92,252,0.45)', flexShrink: 0, overflow: 'hidden'
           }}>
-            <Zap size={17} color="#fff" />
+            <img src="/logo.png" alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
           <div>
             <div style={{ fontWeight: '700', fontSize: '14px', letterSpacing: '-0.02em', color: 'var(--txt)', lineHeight: 1.2 }}>
@@ -228,14 +228,12 @@ function App() {
                   style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     width: '32px', height: '32px', borderRadius: '8px',
-                    border: '1px solid rgba(255,255,255,0.08)', background: 'transparent',
-                    color: 'var(--txt-muted)', cursor: 'pointer', transition: 'all 0.18s',
+                    border: 'none', background: 'transparent',
+                    color: 'rgba(255,255,255,0.15)', cursor: 'default',
                   }}
-                  title="Admin Access"
-                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = '#fff'; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--txt-muted)'; }}
+                  title=""
                 >
-                  <Lock size={14} />
+                  <Lock size={13} />
                 </button>
                 <button
                   onClick={handleLogout}

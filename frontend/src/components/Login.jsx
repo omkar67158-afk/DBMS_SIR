@@ -39,8 +39,8 @@ export default function Login({ onLoginSuccess }) {
       {/* ── LEFT: Branding Panel ── */}
       <motion.div initial={{ opacity:0, x:-30 }} animate={{ opacity:1, x:0 }} transition={{ duration:0.5 }}>
         <div style={{ display:'flex', alignItems:'center', gap:'12px', marginBottom:'32px' }}>
-          <div style={{ width:'44px', height:'44px', background:'linear-gradient(135deg,#7c5cfc,#5b3fe0)', borderRadius:'12px', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, boxShadow:'0 8px 24px rgba(124,92,252,0.4)' }}>
-            <Database size={22} color="#fff" />
+          <div style={{ width:'44px', height:'44px', background:'linear-gradient(135deg,#7c5cfc,#5b3fe0)', borderRadius:'12px', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, boxShadow:'0 8px 24px rgba(124,92,252,0.4)', overflow:'hidden' }}>
+            <img src="/logo.png" alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
           <div>
             <div style={{ fontSize:'13px', fontWeight:'700', color:'var(--txt-muted)', letterSpacing:'0.08em', textTransform:'uppercase' }}>Taught by</div>
