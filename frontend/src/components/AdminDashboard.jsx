@@ -72,9 +72,9 @@ export default function AdminDashboard({ onLogout }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div style={{
             width: '34px', height: '34px', borderRadius: '9px',
-            background: 'linear-gradient(135deg, #f43f5e, #fb7185)',
+            background: 'linear-gradient(135deg, #7c5cfc, #a78bfa)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 0 16px rgba(244,63,94,0.45)', flexShrink: 0,
+            boxShadow: '0 0 16px rgba(124,92,252,0.45)', flexShrink: 0,
           }}>
             <ShieldAlert size={17} color="#fff" />
           </div>
