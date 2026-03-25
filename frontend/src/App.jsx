@@ -5,7 +5,6 @@ import RollNumberEntry from './components/RollNumberEntry';
 import { courseQuestions } from './content';
 import RaceLeaderboard from './components/RaceLeaderboard';
 import AdminDashboard from './components/AdminDashboard';
-import CameraTracker from './components/CameraTracker';
 import { LogOut, Zap, Trophy, BookOpen, CheckCircle2, Lock, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
@@ -16,6 +15,7 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [loginError, setLoginError] = useState('');
   const [activeTab, setActiveTab] = useState('course');
+  const [showAdminPrompt, setShowAdminPrompt] = useState(false);
 
   const fetchProgress = useCallback(async () => {
     const token = localStorage.getItem('token');
@@ -129,7 +129,6 @@ function App() {
 
   return (
     <div className="app-shell">
-      <CameraTracker user={user} />
 
       {/* ══════════════ PREMIUM TOP BAR ══════════════ */}
       <header className="app-topbar">
@@ -225,6 +224,20 @@ function App() {
                   <div style={{ fontSize: '13px', fontWeight: '600', color: 'var(--txt)' }}>{user.name?.split(' ')[0]}</div>
                 </div>
                 <button
+                  onClick={() => setShowAdminPrompt(true)}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    width: '32px', height: '32px', borderRadius: '8px',
+                    border: '1px solid rgba(255,255,255,0.08)', background: 'transparent',
+                    color: 'var(--txt-muted)', cursor: 'pointer', transition: 'all 0.18s',
+                  }}
+                  title="Admin Access"
+                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = '#fff'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--txt-muted)'; }}
+                >
+                  <Lock size={14} />
+                </button>
+                <button
                   onClick={handleLogout}
                   style={{
                     display: 'flex', alignItems: 'center', gap: '6px',
@@ -254,11 +267,22 @@ function App() {
         ) : (
           <motion.div key="dashboard" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="app-body">
 
-            {/* Roll Number Gate */}
-            {!user.rollNumber && (
-              <RollNumberEntry user={user} onConfirm={({ rollNumber }) =>
-                setUser(prev => ({ ...prev, rollNumber }))
-              } />
+            {/* Roll Number Gate & Admin Prompt */}
+            {(!user.rollNumber || showAdminPrompt) && (
+              <div style={{ position: 'fixed', inset: 0, zIndex: 9999 }}>
+                <RollNumberEntry user={user} onConfirm={({ rollNumber }) => {
+                  setUser(prev => ({ ...prev, rollNumber }));
+                  setShowAdminPrompt(false);
+                }} />
+                {showAdminPrompt && (
+                  <button 
+                    onClick={() => setShowAdminPrompt(false)}
+                    style={{ position: 'absolute', top: 20, right: 20, zIndex: 10000, background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer' }}
+                  >
+                    Cancel
+                  </button>
+                )}
+              </div>
             )}
 
             {/* ══════ PREMIUM SIDEBAR ══════ */}
