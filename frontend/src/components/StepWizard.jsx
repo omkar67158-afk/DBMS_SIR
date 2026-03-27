@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   CheckCircle2, UploadCloud, Award, Loader2, Info, XCircle,
-  ArrowRight, ScanLine, BrainCircuit, ImagePlus, Sparkles
+  ArrowRight, ArrowLeft, ScanLine, BrainCircuit, ImagePlus, Sparkles
 } from 'lucide-react';
 import { courseQuestions } from '../content';
 import axios from 'axios';
@@ -10,7 +10,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import Certificate from './Certificate';
 
-export default function StepWizard({ user, refreshUser }) {
+export default function StepWizard({ user, refreshUser, maxStep, dashPhase = 3 }) {
   const [choice, setChoice] = useState(null);
   const [file, setFile] = useState(null);
   const [uploadState, setUploadState] = useState('');
@@ -88,169 +88,187 @@ export default function StepWizard({ user, refreshUser }) {
     <AnimatePresence mode="wait">
       <motion.div
         key={q.id}
-        initial={{ opacity: 0, y: 24 }}
+        initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -16, transition: { duration: 0.15 } }}
-        transition={{ duration: 0.35, ease: [.4, 0, .2, 1] }}
-        style={{ maxWidth: '780px' }}
+        exit={{ opacity: 0, y: -12, transition: { duration: 0.15 } }}
+        transition={{ duration: 0.3, ease: [.4, 0, .2, 1] }}
+        style={{ maxWidth: '760px' }}
       >
 
         {/* ── Step Badge + Progress ── */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5 }} style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '28px' }}>
           <div style={{
-            display: 'inline-flex', alignItems: 'center', gap: '7px',
-            padding: '5px 13px', borderRadius: '20px',
-            background: 'rgba(124,92,252,0.12)', border: '1px solid rgba(124,92,252,0.28)',
-            fontSize: '11px', fontWeight: '700', color: '#a78bfa',
+            display: 'inline-flex', alignItems: 'center', gap: '6px',
+            padding: '5px 12px', borderRadius: '20px',
+            background: 'rgba(91,62,240,0.08)', border: '1px solid rgba(91,62,240,0.20)',
+            fontSize: '11px', fontWeight: '700', color: '#5b3ef0',
             letterSpacing: '0.05em',
           }}>
-            <Sparkles size={11} />
+            <Sparkles size={10} />
             STEP {q.id} OF {total}
           </div>
-          <div style={{ flex: 1, height: '4px', borderRadius: '99px', background: 'rgba(255,255,255,0.05)', overflow: 'hidden' }}>
+          <div style={{ flex: 1, height: '5px', borderRadius: '99px', background: 'var(--surface-2)', overflow: 'hidden' }}>
             <motion.div
               initial={{ width: 0 }}
               animate={{ width: `${pct}%` }}
-              transition={{ duration: 1, ease: [.4, 0, .2, 1], delay: 0.2 }}
+              transition={{ duration: 0.9, ease: [.4, 0, .2, 1], delay: 0.2 }}
               style={{
                 height: '100%', borderRadius: '99px',
-                background: 'linear-gradient(90deg, #7c5cfc, #14d997)',
-                boxShadow: '0 0 8px rgba(124,92,252,0.5)',
+                background: 'linear-gradient(90deg, #5b3ef0, #7c5cfc)',
               }}
             />
           </div>
-          <span style={{ fontSize: '12px', color: 'var(--txt-faint)', fontWeight: '600', whiteSpace: 'nowrap' }}>{pct}% complete</span>
-        </div>
+          <span style={{ fontSize: '12px', color: 'var(--txt-muted)', fontWeight: '600', whiteSpace: 'nowrap' }}>{pct}% done</span>
+        </motion.div>
 
-        {/* ── Question ── */}
-        <div style={{ marginBottom: '32px' }}>
-          <h1 style={{
-            fontSize: '28px', fontWeight: '800', lineHeight: 1.35,
-            letterSpacing: '-0.025em', color: '#fff', margin: 0,
-            maxWidth: '700px',
-          }}>
-            {q.question}
-          </h1>
-          {q.requirement && (
-            <p style={{ marginTop: '10px', fontSize: '14px', color: 'var(--txt-muted)', lineHeight: 1.6, maxWidth: '600px' }}>
-              {q.requirement}
-            </p>
-          )}
-        </div>
+        {/* ── Wrapper for Question & Verification/Choices ── */}
+        {maxStep && user.currentStep < maxStep ? (
+           <>
+             {/* ── Question ── */}
+             <div style={{ marginBottom: '32px' }}>
+               <h1 style={{ fontSize: '28px', fontWeight: '800', lineHeight: 1.3, letterSpacing: '-0.03em', color: 'var(--txt)', margin: '0 0 10px', maxWidth: '680px', minHeight: '36px' }}>
+                 {dashPhase >= 1 && q.question.split("").map((c, i) => (
+                   <motion.span key={`q-${i}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: dashPhase === 1 ? i * 0.02 : 0 }}>
+                     {c}
+                   </motion.span>
+                 ))}
+               </h1>
+               <motion.div style={{ fontSize: '15px', color: 'var(--txt-muted)', lineHeight: 1.65, maxWidth: '560px', margin: 0 }}>
+                 {q.requirement && dashPhase >= 2 && q.requirement.split("").map((c, i) => (
+                   <motion.span key={`r1-${i}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: dashPhase === 2 ? i * 0.015 : 0 }}>
+                     {c}
+                   </motion.span>
+                 ))}
+               </motion.div>
+             </div>
+             
+             <motion.div initial={{ opacity: 0 }} animate={{ opacity: dashPhase >= 3 ? 1 : 0 }} transition={{ duration: 0.5 }}>
+               <motion.div
+                 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                 style={{
+                   padding: '16px 20px', borderRadius: '12px', background: 'rgba(5,150,105,0.06)',
+                   border: '1px solid rgba(5,150,105,0.2)', display: 'flex', alignItems: 'center', gap: '12px',
+                   marginBottom: '24px', boxShadow: '0 4px 12px rgba(5,150,105,0.05)'
+                 }}
+               >
+                 <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#059669', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 2px 8px rgba(5,150,105,0.3)' }}>
+                   <CheckCircle2 size={20} color="#fff" />
+                 </div>
+                 <div>
+                   <div style={{ fontWeight: '700', color: '#059669', fontSize: '15px', marginBottom: '2px' }}>Step Verified</div>
+                   <div style={{ fontSize: '13px', color: 'rgba(5,150,105,0.8)', fontWeight: '500' }}>You have successfully completed this requirement.</div>
+                 </div>
+               </motion.div>
+             </motion.div>
+           </>
+        ) : (
+           <>
+             <AnimatePresence mode="popLayout">
+               {!choice && (
+                 <motion.div key="question" exit={{ scale: 1.05, opacity: 0, filter: 'blur(5px)' }} transition={{ duration: 0.3 }} style={{ marginBottom: '32px' }}>
+                    <h1 style={{ fontSize: '28px', fontWeight: '800', lineHeight: 1.3, letterSpacing: '-0.03em', color: 'var(--txt)', margin: '0 0 10px', maxWidth: '680px', minHeight: '36px' }}>
+                      {dashPhase >= 1 && q.question.split("").map((c, i) => (
+                        <motion.span key={`q-${i}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: dashPhase === 1 ? i * 0.02 : 0 }}>
+                          {c}
+                        </motion.span>
+                      ))}
+                    </h1>
+                    <motion.div style={{ fontSize: '15px', color: 'var(--txt-muted)', lineHeight: 1.65, maxWidth: '560px', margin: 0 }}>
+                      {q.requirement && dashPhase >= 2 && q.requirement.split("").map((c, i) => (
+                        <motion.span key={`r2-${i}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: dashPhase === 2 ? i * 0.015 : 0 }}>
+                          {c}
+                        </motion.span>
+                      ))}
+                    </motion.div>
+                 </motion.div>
+               )}
+             </AnimatePresence>
 
-        {/* ── Choice Buttons ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '24px' }}>
-          {/* YES */}
-          <motion.button
-            whileHover={{ y: -2 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => { setChoice('yes'); setError(''); }}
-            style={{
-              padding: '20px 24px', borderRadius: '16px', cursor: 'pointer',
-              border: choice === 'yes' ? '1px solid rgba(20,217,151,0.45)' : '1px solid rgba(255,255,255,0.08)',
-              background: choice === 'yes'
-                ? 'linear-gradient(135deg, rgba(20,217,151,0.1) 0%, rgba(20,217,151,0.04) 100%)'
-                : 'rgba(255,255,255,0.02)',
-              display: 'flex', alignItems: 'center', gap: '16px', textAlign: 'left',
-              boxShadow: choice === 'yes' ? '0 0 28px -8px rgba(20,217,151,0.25)' : '0 2px 12px rgba(0,0,0,0.2)',
-              transition: 'all 0.22s cubic-bezier(.4,0,.2,1)',
-              position: 'relative', overflow: 'hidden',
-              backdropFilter: 'blur(8px)',
-            }}
-          >
-            {choice === 'yes' && <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', background: 'linear-gradient(90deg, transparent, #14d997, transparent)' }} />}
-            <div style={{
-              width: '44px', height: '44px', borderRadius: '12px', flexShrink: 0,
-              background: choice === 'yes' ? 'rgba(20,217,151,0.15)' : 'rgba(255,255,255,0.04)',
-              border: choice === 'yes' ? '1px solid rgba(20,217,151,0.35)' : '1px solid rgba(255,255,255,0.08)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: choice === 'yes' ? '0 0 16px rgba(20,217,151,0.3)' : 'none',
-              transition: 'all 0.22s',
-            }}>
-              <CheckCircle2 size={20} color={choice === 'yes' ? 'var(--green)' : 'rgba(255,255,255,0.3)'} />
-            </div>
-            <div>
-              <div style={{ fontWeight: '700', fontSize: '15px', color: choice === 'yes' ? 'var(--green)' : 'var(--txt)', marginBottom: '3px' }}>Yes, done!</div>
-              <div style={{ fontSize: '12px', color: choice === 'yes' ? 'rgba(20,217,151,0.65)' : 'var(--txt-faint)', fontWeight: '500' }}>Upload proof to continue →</div>
-            </div>
-          </motion.button>
-
-          {/* NO */}
-          <motion.button
-            whileHover={{ y: -2 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => { setChoice('no'); setError(''); setFile(null); }}
-            style={{
-              padding: '20px 24px', borderRadius: '16px', cursor: 'pointer',
-              border: choice === 'no' ? '1px solid rgba(248,113,113,0.4)' : '1px solid rgba(255,255,255,0.08)',
-              background: choice === 'no'
-                ? 'linear-gradient(135deg, rgba(248,113,113,0.09) 0%, rgba(248,113,113,0.03) 100%)'
-                : 'rgba(255,255,255,0.02)',
-              display: 'flex', alignItems: 'center', gap: '16px', textAlign: 'left',
-              boxShadow: choice === 'no' ? '0 0 28px -8px rgba(248,113,113,0.2)' : '0 2px 12px rgba(0,0,0,0.2)',
-              transition: 'all 0.22s cubic-bezier(.4,0,.2,1)',
-              position: 'relative', overflow: 'hidden',
-              backdropFilter: 'blur(8px)',
-            }}
-          >
-            {choice === 'no' && <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', background: 'linear-gradient(90deg, transparent, #f87171, transparent)' }} />}
-            <div style={{
-              width: '44px', height: '44px', borderRadius: '12px', flexShrink: 0,
-              background: choice === 'no' ? 'rgba(248,113,113,0.12)' : 'rgba(255,255,255,0.04)',
-              border: choice === 'no' ? '1px solid rgba(248,113,113,0.3)' : '1px solid rgba(255,255,255,0.08)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: choice === 'no' ? '0 0 16px rgba(248,113,113,0.25)' : 'none',
-              transition: 'all 0.22s',
-            }}>
-              <Info size={20} color={choice === 'no' ? 'var(--red)' : 'rgba(255,255,255,0.3)'} />
-            </div>
-            <div>
-              <div style={{ fontWeight: '700', fontSize: '15px', color: choice === 'no' ? 'var(--red)' : 'var(--txt)', marginBottom: '3px' }}>Not yet</div>
-              <div style={{ fontSize: '12px', color: choice === 'no' ? 'rgba(248,113,113,0.65)' : 'var(--txt-faint)', fontWeight: '500' }}>Show me how to do it</div>
-            </div>
-          </motion.button>
-        </div>
+             <motion.div initial={{ opacity: 0 }} animate={{ opacity: dashPhase >= 3 ? 1 : 0 }} transition={{ duration: 0.5 }}>
+               <AnimatePresence mode="popLayout">
+                 {!choice ? (
+                   <motion.div key="buttons" exit={{ opacity: 0, filter: 'blur(4px)' }} transition={{ duration: 0.2 }} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '24px' }}>
+                     {/* YES */}
+                     <motion.button layoutId="btn-yes" whileHover={{ y: -2, boxShadow: '0 6px 20px rgba(5,150,105,0.15)' }} whileTap={{ scale: 0.98 }} onClick={() => { setChoice('yes'); setError(''); }} style={{ padding: '18px 22px', borderRadius: '14px', cursor: 'pointer', border: '1.5px solid var(--border)', background: '#ffffff', display: 'flex', alignItems: 'center', gap: '14px', textAlign: 'left', boxShadow: 'var(--shadow-xs)', transition: 'border-color 0.2s' }}>
+                       <div style={{ width: '42px', height: '42px', borderRadius: '11px', flexShrink: 0, background: 'var(--surface)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}>
+                         <CheckCircle2 size={20} color="var(--txt-faint)" />
+                       </div>
+                       <div>
+                         <div style={{ fontWeight: '700', fontSize: '15px', color: 'var(--txt)', marginBottom: '2px' }}>Yes, done!</div>
+                         <div style={{ fontSize: '12px', color: 'var(--txt-faint)', fontWeight: '500' }}>Upload proof to continue →</div>
+                       </div>
+                     </motion.button>
+           
+                     {/* NO */}
+                     <motion.button layoutId="btn-no" whileHover={{ y: -2, boxShadow: '0 6px 20px rgba(91,62,240,0.12)' }} whileTap={{ scale: 0.98 }} onClick={() => { setChoice('no'); setError(''); setFile(null); }} style={{ padding: '18px 22px', borderRadius: '14px', cursor: 'pointer', border: '1.5px solid var(--border)', background: '#ffffff', display: 'flex', alignItems: 'center', gap: '14px', textAlign: 'left', boxShadow: 'var(--shadow-xs)', transition: 'border-color 0.2s' }}>
+                       <div style={{ width: '42px', height: '42px', borderRadius: '11px', flexShrink: 0, background: 'var(--surface)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}>
+                         <Info size={20} color="var(--txt-faint)" />
+                       </div>
+                       <div>
+                         <div style={{ fontWeight: '700', fontSize: '15px', color: 'var(--txt)', marginBottom: '2px' }}>Not yet</div>
+                         <div style={{ fontSize: '12px', color: 'var(--txt-faint)', fontWeight: '500' }}>Show me how to do it</div>
+                       </div>
+                     </motion.button>
+                   </motion.div>
+                 ) : (
+                   <motion.div key="selected-header" initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '24px' }}>
+                     <motion.button whileHover={{ backgroundColor: 'var(--surface-2)' }} onClick={() => { setChoice(null); setError(''); setFile(null); }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, width: '46px', height: '46px', borderRadius: '14px', background: 'var(--surface)', border: '1.5px solid var(--border)', cursor: 'pointer', boxShadow: 'var(--shadow-xs)', color: 'var(--txt-muted)' }}>
+                       <ArrowLeft size={20} />
+                     </motion.button>
+                     <motion.div layoutId={`btn-${choice}`} style={{ padding: '0 20px', height: '46px', borderRadius: '14px', border: `1.5px solid ${choice === 'yes' ? '#059669' : '#5b3ef0'}`, background: choice === 'yes' ? 'rgba(5,150,105,0.06)' : 'rgba(91,62,240,0.06)', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                       <div style={{ width: '22px', height: '22px', borderRadius: '6px', background: choice === 'yes' ? '#059669' : '#5b3ef0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          {choice === 'yes' ? <CheckCircle2 size={12} color="#fff" /> : <Info size={12} color="#fff" />}
+                       </div>
+                       <div style={{ fontWeight: '700', fontSize: '14px', color: choice === 'yes' ? '#059669' : '#5b3ef0' }}>
+                          {choice === 'yes' ? 'Yes, done!' : 'Not yet'}
+                       </div>
+                     </motion.div>
+                   </motion.div>
+                 )}
+               </AnimatePresence>
+             </motion.div>
+           </>
+        )}
 
         <AnimatePresence>
           {/* ── Upload Panel ── */}
           {choice === 'yes' && (
             <motion.div key="upload"
-              initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.3 }}
+              initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.25 }}
             >
               <div style={{
-                borderRadius: '20px', overflow: 'hidden',
-                background: 'linear-gradient(135deg, rgba(124,92,252,0.07) 0%, rgba(20,217,151,0.03) 100%)',
-                border: '1px solid rgba(124,92,252,0.2)',
-                boxShadow: '0 4px 32px -8px rgba(0,0,0,0.4)',
-                position: 'relative',
+                borderRadius: '18px', overflow: 'hidden',
+                background: '#ffffff',
+                border: '1px solid var(--border)',
+                boxShadow: 'var(--shadow-md)',
               }}>
-                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', background: 'linear-gradient(90deg, #7c5cfc, #a78bfa, #14d997)', opacity: 0.7 }} />
+                {/* Top accent bar */}
+                <div style={{ height: '3px', background: 'linear-gradient(90deg, #5b3ef0, #7c5cfc, #059669)' }} />
 
                 {/* Card header */}
                 <div style={{
-                  padding: '20px 28px 18px',
+                  padding: '18px 26px 16px',
                   display: 'flex', alignItems: 'center', gap: '14px',
-                  borderBottom: '1px solid rgba(255,255,255,0.06)',
-                  background: 'rgba(124,92,252,0.06)',
+                  borderBottom: '1px solid var(--border)',
+                  background: 'var(--surface)',
                 }}>
                   <div style={{
-                    width: '42px', height: '42px', borderRadius: '12px', flexShrink: 0,
-                    background: 'rgba(124,92,252,0.15)', border: '1px solid rgba(124,92,252,0.3)',
+                    width: '40px', height: '40px', borderRadius: '11px', flexShrink: 0,
+                    background: 'rgba(91,62,240,0.08)', border: '1px solid rgba(91,62,240,0.18)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    boxShadow: '0 0 16px rgba(124,92,252,0.25)',
                   }}>
-                    <UploadCloud size={20} color="var(--brand)" />
+                    <UploadCloud size={19} color="var(--brand)" />
                   </div>
                   <div>
-                    <h3 style={{ margin: '0 0 3px', fontSize: '16px', fontWeight: '700', color: 'var(--txt)' }}>Verification Screenshot</h3>
-                    <p style={{ margin: 0, color: 'var(--txt-muted)', fontSize: '12px' }}>
+                    <h3 style={{ margin: '0 0 2px', fontSize: '15px', fontWeight: '700', color: 'var(--txt)' }}>Verification Screenshot</h3>
+                    <p style={{ margin: 0, color: 'var(--txt-muted)', fontSize: '12.5px' }}>
                       {q.requirement}
                     </p>
                   </div>
                 </div>
 
-                <div style={{ padding: '24px 28px' }}>
+                <div style={{ padding: '22px 26px' }}>
                   {/* Drop zone */}
                   <div
                     onClick={() => fileInputRef.current?.click()}
@@ -258,31 +276,27 @@ export default function StepWizard({ user, refreshUser }) {
                     onDragLeave={() => setDragOver(false)}
                     onDrop={e => { e.preventDefault(); setDragOver(false); handleFile(e.dataTransfer.files[0]); }}
                     style={{
-                      border: `1.5px dashed ${dragOver ? 'var(--brand)' : file ? 'var(--green)' : 'rgba(255,255,255,0.1)'}`,
-                      borderRadius: '14px', padding: '28px 24px',
+                      border: `1.5px dashed ${dragOver ? '#5b3ef0' : file ? '#059669' : 'var(--border-hi)'}`,
+                      borderRadius: '12px', padding: '28px 22px',
                       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '10px',
-                      cursor: 'pointer', textAlign: 'center', marginBottom: '20px',
-                      background: dragOver
-                        ? 'rgba(124,92,252,0.06)'
-                        : file
-                          ? 'rgba(20,217,151,0.05)'
-                          : 'rgba(255,255,255,0.015)',
+                      cursor: 'pointer', textAlign: 'center', marginBottom: '18px',
+                      background: dragOver ? 'rgba(91,62,240,0.04)' : file ? 'rgba(5,150,105,0.04)' : 'var(--surface)',
                       transition: 'all 0.2s',
                       minHeight: '110px',
                     }}
                   >
                     <div style={{
                       width: '44px', height: '44px', borderRadius: '12px',
-                      background: file ? 'rgba(20,217,151,0.12)' : 'rgba(255,255,255,0.04)',
+                      background: file ? 'rgba(5,150,105,0.10)' : 'rgba(91,62,240,0.06)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      border: file ? '1px solid rgba(20,217,151,0.25)' : '1px solid rgba(255,255,255,0.08)',
+                      border: file ? '1px solid rgba(5,150,105,0.22)' : '1px solid rgba(91,62,240,0.14)',
                     }}>
                       {file
-                        ? <CheckCircle2 size={22} color="var(--green)" />
-                        : <ImagePlus size={22} color="rgba(255,255,255,0.3)" />}
+                        ? <CheckCircle2 size={22} color="#059669" />
+                        : <ImagePlus size={22} color="var(--brand)" />}
                     </div>
                     <div>
-                      <div style={{ fontSize: '14px', fontWeight: '600', color: file ? 'var(--green)' : 'var(--txt-muted)', marginBottom: '3px' }}>
+                      <div style={{ fontSize: '14px', fontWeight: '600', color: file ? '#059669' : 'var(--txt)', marginBottom: '3px' }}>
                         {file ? file.name : 'Click to upload or drag & drop'}
                       </div>
                       <div style={{ fontSize: '12px', color: 'var(--txt-faint)' }}>
@@ -292,7 +306,7 @@ export default function StepWizard({ user, refreshUser }) {
                     {file && (
                       <button
                         onClick={e => { e.stopPropagation(); setFile(null); }}
-                        style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '600' }}
+                        style={{ fontSize: '11px', color: 'var(--txt-faint)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '600', textDecoration: 'underline' }}
                       >
                         Remove
                       </button>
@@ -305,10 +319,10 @@ export default function StepWizard({ user, refreshUser }) {
                     <motion.div
                       initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
                       style={{
-                        color: 'var(--red)', background: 'rgba(248,113,113,0.08)',
-                        border: '1px solid rgba(248,113,113,0.2)', borderRadius: '10px',
+                        color: 'var(--red)', background: 'var(--red-fade)',
+                        border: '1px solid rgba(220,38,38,0.20)', borderRadius: '9px',
                         padding: '10px 14px', fontSize: '13px', display: 'flex', alignItems: 'center',
-                        gap: '8px', marginBottom: '16px',
+                        gap: '8px', marginBottom: '16px', fontWeight: '500',
                       }}
                     >
                       <XCircle size={14} /> {error}
@@ -318,20 +332,20 @@ export default function StepWizard({ user, refreshUser }) {
                   {/* Submit */}
                   <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                     <motion.button
-                      whileHover={{ y: -2, boxShadow: '0 8px 24px rgba(124,92,252,0.5)' }}
+                      whileHover={{ y: -1, boxShadow: '0 8px 24px rgba(91,62,240,0.35)' }}
                       whileTap={{ scale: 0.97 }}
                       onClick={handleSubmit}
                       style={{
                         display: 'flex', alignItems: 'center', gap: '8px',
-                        padding: '12px 28px', fontSize: '14px', fontWeight: '700',
-                        borderRadius: '12px', border: 'none', cursor: 'pointer',
-                        background: 'linear-gradient(135deg, #7c5cfc, #a78bfa)',
-                        color: '#fff', boxShadow: '0 4px 16px rgba(124,92,252,0.4)',
+                        padding: '11px 26px', fontSize: '14px', fontWeight: '700',
+                        borderRadius: '11px', border: 'none', cursor: 'pointer',
+                        background: 'linear-gradient(135deg, #5b3ef0, #7c5cfc)',
+                        color: '#fff', boxShadow: 'var(--shadow-brand)',
                         transition: 'box-shadow 0.2s',
-                        minWidth: '180px', justifyContent: 'center',
+                        minWidth: '160px', justifyContent: 'center',
                       }}
                     >
-                      Submit <ArrowRight size={15} />
+                      Submit <ArrowRight size={14} />
                     </motion.button>
                   </div>
                 </div>
@@ -340,43 +354,45 @@ export default function StepWizard({ user, refreshUser }) {
           )}
 
           {/* ── Guide Panel ── */}
-          {choice === 'no' && (
+          {(choice === 'no' || (maxStep && user.currentStep < maxStep)) && (
             <motion.div key="guide"
-              initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.3 }}
+              initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.25 }}
             >
               <div style={{
-                borderRadius: '20px', overflow: 'hidden',
-                background: 'rgba(124,92,252,0.04)',
-                border: '1px solid rgba(124,92,252,0.18)',
-                boxShadow: '0 4px 32px -8px rgba(0,0,0,0.4)',
-                position: 'relative',
+                borderRadius: '18px', overflow: 'hidden',
+                background: '#ffffff',
+                border: '1px solid var(--border)',
+                boxShadow: 'var(--shadow-md)',
+                display: 'flex', flexDirection: 'column',
+                maxHeight: 'calc(100vh - 240px)'
               }}>
-                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', background: 'linear-gradient(90deg, #7c5cfc, #a78bfa)', opacity: 0.6 }} />
+                <div style={{ height: '3px', background: 'linear-gradient(90deg, #5b3ef0, #7c5cfc)', flexShrink: 0 }} />
 
                 {/* Guide header */}
                 <div style={{
-                  padding: '20px 28px 18px',
+                  padding: '18px 26px 16px',
                   display: 'flex', alignItems: 'center', gap: '14px',
-                  borderBottom: '1px solid rgba(255,255,255,0.06)',
-                  background: 'rgba(124,92,252,0.05)',
+                  borderBottom: '1px solid var(--border)',
+                  background: 'var(--surface)',
+                  flexShrink: 0
                 }}>
                   <div style={{
-                    width: '42px', height: '42px', borderRadius: '12px', flexShrink: 0,
-                    background: 'rgba(124,92,252,0.15)', border: '1px solid rgba(124,92,252,0.3)',
+                    width: '40px', height: '40px', borderRadius: '11px', flexShrink: 0,
+                    background: 'rgba(91,62,240,0.08)', border: '1px solid rgba(91,62,240,0.18)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                   }}>
-                    <Info size={20} color="var(--brand)" />
+                    <Info size={19} color="var(--brand)" />
                   </div>
                   <div>
-                    <h3 style={{ margin: '0 0 3px', fontSize: '16px', fontWeight: '700', color: 'var(--txt)' }}>Implementation Guide</h3>
-                    <p style={{ margin: 0, fontSize: '12px', color: 'var(--txt-muted)' }}>
+                    <h3 style={{ margin: '0 0 2px', fontSize: '15px', fontWeight: '700', color: 'var(--txt)' }}>Implementation Guide</h3>
+                    <p style={{ margin: 0, fontSize: '12.5px', color: 'var(--txt-muted)' }}>
                       Follow each step carefully, then select <strong style={{ color: 'var(--green)' }}>"Yes, done!"</strong> above to submit proof
                     </p>
                   </div>
                 </div>
 
-                <div style={{ padding: '28px 32px' }} className="prose">
+                <div style={{ padding: '26px 30px', overflowY: 'auto', flex: 1 }} className="prose">
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>{q.guide}</ReactMarkdown>
                 </div>
               </div>
@@ -395,82 +411,82 @@ export default function StepWizard({ user, refreshUser }) {
             style={{
               position: 'fixed', inset: 0, zIndex: 1000,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              background: 'rgba(5,5,7,0.88)',
-              backdropFilter: 'blur(28px)',
+              background: 'rgba(255,255,255,0.92)',
+              backdropFilter: 'blur(20px)',
             }}
           >
-            <div style={{ textAlign: 'center', maxWidth: '520px', width: '100%', padding: '0 20px' }}>
+            <div style={{ textAlign: 'center', maxWidth: '480px', width: '100%', padding: '0 20px' }}>
 
               {/* Animated ring cluster */}
-              <div style={{ position: 'relative', width: '200px', height: '200px', margin: '0 auto 44px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ position: 'relative', width: '180px', height: '180px', margin: '0 auto 40px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {(uploadState === 'uploading' || uploadState === 'ocr' || uploadState === 'ai') && (
                   <motion.div
                     animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 2.5, ease: 'linear' }}
-                    style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '2px solid transparent', borderTopColor: 'var(--brand)', filter: 'drop-shadow(0 0 12px var(--brand))' }}
+                    style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '2.5px solid transparent', borderTopColor: '#5b3ef0', opacity: 0.8 }}
                   />
                 )}
                 {(uploadState === 'ocr' || uploadState === 'ai') && (
                   <motion.div
                     animate={{ rotate: -360 }} transition={{ repeat: Infinity, duration: 3.5, ease: 'linear' }}
-                    style={{ position: 'absolute', inset: '16px', borderRadius: '50%', border: '4px solid transparent', borderBottomColor: '#a78bfa', borderLeftColor: 'rgba(124,92,252,0.5)' }}
+                    style={{ position: 'absolute', inset: '16px', borderRadius: '50%', border: '3px solid transparent', borderBottomColor: '#7c5cfc', borderLeftColor: 'rgba(91,62,240,0.3)' }}
                   />
                 )}
                 {uploadState === 'ai' && (
                   <motion.div
                     animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1.5, ease: 'linear' }}
-                    style={{ position: 'absolute', inset: '32px', borderRadius: '50%', border: '2px dashed rgba(255,255,255,0.15)' }}
+                    style={{ position: 'absolute', inset: '32px', borderRadius: '50%', border: '2px dashed rgba(91,62,240,0.18)' }}
                   />
                 )}
                 {uploadState === 'success' && (
                   <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 220, damping: 14 }}
-                    style={{ position: 'absolute', inset: '28px', background: 'var(--green)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 60px var(--green)' }}>
-                    <CheckCircle2 size={64} color="#000" strokeWidth={1.5} />
+                    style={{ position: 'absolute', inset: '24px', background: 'var(--green)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 40px rgba(5,150,105,0.3)' }}>
+                    <CheckCircle2 size={60} color="#fff" strokeWidth={1.5} />
                   </motion.div>
                 )}
                 {uploadState === 'error' && (
                   <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 220, damping: 14 }}
-                    style={{ position: 'absolute', inset: '28px', background: 'var(--red)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 60px rgba(248,113,113,0.5)' }}>
-                    <XCircle size={64} color="#fff" strokeWidth={1.5} />
+                    style={{ position: 'absolute', inset: '24px', background: 'var(--red)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 40px rgba(220,38,38,0.25)' }}>
+                    <XCircle size={60} color="#fff" strokeWidth={1.5} />
                   </motion.div>
                 )}
                 {(uploadState === 'uploading' || uploadState === 'ocr' || uploadState === 'ai') && (
-                  <motion.div initial={{ scale: 0.8 }} animate={{ scale: [0.9, 1.08, 0.9] }} transition={{ repeat: Infinity, duration: 2 }} style={{ zIndex: 10 }}>
-                    {uploadState === 'uploading' && <UploadCloud size={60} color="var(--brand)" strokeWidth={1} />}
-                    {uploadState === 'ocr' && <ScanLine size={60} color="#a78bfa" strokeWidth={1} />}
-                    {uploadState === 'ai' && <BrainCircuit size={60} color="#fff" strokeWidth={1} />}
+                  <motion.div initial={{ scale: 0.8 }} animate={{ scale: [0.9, 1.06, 0.9] }} transition={{ repeat: Infinity, duration: 2 }} style={{ zIndex: 10 }}>
+                    {uploadState === 'uploading' && <UploadCloud size={56} color="#5b3ef0" strokeWidth={1.2} />}
+                    {uploadState === 'ocr' && <ScanLine size={56} color="#7c5cfc" strokeWidth={1.2} />}
+                    {uploadState === 'ai' && <BrainCircuit size={56} color="#5b3ef0" strokeWidth={1.2} />}
                   </motion.div>
                 )}
               </div>
 
-              <h2 style={{ fontSize: '30px', fontWeight: '800', letterSpacing: '-0.025em', marginBottom: '14px', color: '#fff' }}>
+              <h2 style={{ fontSize: '28px', fontWeight: '800', letterSpacing: '-0.025em', marginBottom: '12px', color: 'var(--txt)' }}>
                 {uploadState === 'uploading' && 'Transmitting Data'}
-                {uploadState === 'ocr' && <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }}>Extracting Text Parameters</motion.span>}
-                {uploadState === 'ai' && <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-gradient">AI Cluster Processing</motion.span>}
-                {uploadState === 'success' && <span className="text-green">Verification Passed!</span>}
+                {uploadState === 'ocr' && <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }}>Extracting Text</motion.span>}
+                {uploadState === 'ai' && <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-gradient">AI Processing</motion.span>}
+                {uploadState === 'success' && <span style={{ color: 'var(--green)' }}>Verification Passed!</span>}
                 {uploadState === 'error' && <span style={{ color: 'var(--red)' }}>Verification Failed</span>}
               </h2>
 
-              <p style={{ color: 'var(--txt-muted)', fontSize: '15px', lineHeight: 1.65, margin: '0 auto 36px', maxWidth: '420px' }}>
-                {uploadState === 'uploading' && 'Securely transferring your image file to the course ingestion service in MongoDB.'}
-                {uploadState === 'ocr' && 'Optical Character Recognition processing your snapshot to identify proof metrics.'}
-                {uploadState === 'ai' && 'Verifying your screenshot against the step requirements with AI…'}
-                {uploadState === 'success' && 'Your proof has been validated autonomously. You are cleared for the next stage.'}
+              <p style={{ color: 'var(--txt-muted)', fontSize: '15px', lineHeight: 1.65, margin: '0 auto 32px', maxWidth: '380px' }}>
+                {uploadState === 'uploading' && 'Securely transferring your screenshot to MongoDB Atlas.'}
+                {uploadState === 'ocr' && 'Optical Character Recognition is processing your snapshot.'}
+                {uploadState === 'ai' && 'Verifying your screenshot against the step requirements…'}
+                {uploadState === 'success' && 'Your proof has been validated. You are cleared for the next step!'}
                 {uploadState === 'error' && error}
               </p>
 
               {uploadState === 'error' && (
                 <motion.button
-                  whileHover={{ y: -2 }}
+                  whileHover={{ y: -1 }}
                   onClick={() => setUploadState('')}
                   style={{
                     padding: '13px 32px', fontSize: '14px', fontWeight: '700',
-                    borderRadius: '12px', border: '1px solid rgba(255,255,255,0.15)',
-                    background: 'rgba(255,255,255,0.06)', cursor: 'pointer',
-                    color: '#fff', backdropFilter: 'blur(8px)',
+                    borderRadius: '11px', border: '1.5px solid var(--border)',
+                    background: '#ffffff', cursor: 'pointer',
+                    color: 'var(--txt)', boxShadow: 'var(--shadow-sm)',
                     transition: 'all 0.2s',
                   }}
                 >
-                  Acknowledge & Try Again
+                  Try Again
                 </motion.button>
               )}
             </div>

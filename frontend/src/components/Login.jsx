@@ -1,160 +1,133 @@
-import { useState } from 'react';
+
+
+import { useState, useEffect } from 'react';
 import { GoogleLogin } from '@react-oauth/google';
-import { motion } from 'framer-motion';
-import { Database, Shield, BookOpen, CheckCircle2, CloudUpload, Award, ArrowRight } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Shield } from 'lucide-react';
+import LottieLib from 'lottie-react';
 import axios from 'axios';
+import animationData from '../../data.json';
+import emptyBoxData from '../../Empty Box.json';
 
-const features = [
-  { icon: BookOpen,     text: 'Step-by-step guided labs with detailed instructions' },
-  { icon: CloudUpload,  text: 'Screenshot proof submitted directly to MongoDB Atlas' },
-  { icon: CheckCircle2, text: 'Progress saved automatically at every step' },
-  { icon: Award,        text: 'Earn a personalized digital certificate upon completion' },
-];
-
-const stats = [
-  { value: '8', label: 'Lab Steps' },
-  { value: 'AI', label: 'Verified' },
-  { value: '100%', label: 'Free' },
-];
+// lottie-react may come through as a CJS-wrapped object in Vite ESM mode
+const Lottie = LottieLib?.default ?? LottieLib;
 
 export default function Login({ onLoginSuccess }) {
-  const [error, setError] = useState(null);
+    const [error, setError] = useState(null);
+    const [phase, setPhase] = useState(0);
 
-  const handleSuccess = async ({ credential }) => {
-    try {
-      const res = await axios.post(`${import.meta.env.VITE_API_URL}/api/auth/google`, { credential });
-      localStorage.setItem('token', res.data.token);
-      onLoginSuccess(res.data.user);
-    } catch (err) {
-      setError(err.response?.data?.error || 'Authentication failed. Please try again.');
-    }
-  };
+    useEffect(() => {
+        const t1 = setTimeout(() => setPhase(1), 1000); // 1s: Welcome text zoom in down
+        const t2 = setTimeout(() => setPhase(2), 3000); // 3s: Box slides up
+        const t3 = setTimeout(() => setPhase(3), 5000); // 5s: Card scales up from box
+        const t4 = setTimeout(() => setPhase(4), 6000); // 6s: Box rolls out to the left
+        return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4); };
+    }, []);
 
-  return (
-    <div className="login-root">
-      {/* Subtle background geometry */}
-      <div className="login-bg-geo" aria-hidden="true">
-        <div className="login-bg-circle login-bg-circle-1" />
-        <div className="login-bg-circle login-bg-circle-2" />
-        <div className="login-bg-grid" />
-      </div>
+    const handleSuccess = async ({ credential }) => {
+        try {
+            const res = await axios.post(`${import.meta.env.VITE_API_URL}/api/auth/google`, { credential });
+            localStorage.setItem('token', res.data.token);
+            onLoginSuccess(res.data.user);
+        } catch (err) {
+            setError(err.response?.data?.error || 'Authentication failed. Please try again.');
+        }
+    };
 
-      <div className="login-grid">
-
-        {/* ══ LEFT PANEL ══ */}
+    return (
         <motion.div
-          className="login-left"
-          initial={{ opacity: 0, x: -24 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+            key="login"
+            exit={{ scale: 0.8, opacity: 0 }}
+            transition={{ duration: 0.4 }}
+            style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}
         >
-          {/* Instructor badge */}
-          <div className="login-instructor">
-            <div className="login-logo-wrap">
-              <img src="/logo.png" alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            <motion.div
+                className="auth-welcome-heading"
+                initial={{ opacity: 0, y: -40, scale: 0.9 }}
+                animate={phase >= 1 ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: -40, scale: 0.9 }}
+                transition={{ duration: 0.8, type: 'spring', bounce: 0.4 }}
+                style={{ marginBottom: '16px' }}
+            >
+                <span className="google-blue">Welcome</span>
+                {' '}to AtlasDB
+            </motion.div>
+
+            <div style={{ position: 'relative', width: '100%', maxWidth: '420px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                <AnimatePresence>
+                    {phase >= 2 && phase < 4 && (
+                        <motion.div
+                            initial={{ opacity: 0, y: 150, x: 0, rotate: 0 }}
+                            animate={{ opacity: 1, y: 0, x: 0, rotate: 0 }}
+                            exit={{ 
+                                x: '60vw', 
+                                y: '60vh',
+                                rotate: 720, 
+                                opacity: 1,
+                                transition: { duration: 2.5, ease: 'easeIn' }
+                            }}
+                            transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+                            style={{
+                                position: 'absolute',
+                                width: '320px',
+                                height: '320px',
+                                zIndex: 1,
+                                pointerEvents: 'none'
+                            }}
+                        >
+                            <Lottie
+                                animationData={emptyBoxData}
+                                loop={false}
+                                autoplay
+                                rendererSettings={{ preserveAspectRatio: 'xMidYMid meet' }}
+                            />
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
+                <motion.div
+                    className="auth-card"
+                    initial={{ opacity: 0, scale: 0 }}
+                    animate={phase >= 3 ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0 }}
+                    transition={{ duration: 0.7, type: 'spring', bounce: 0.4 }}
+                    style={{ position: 'relative', zIndex: 10, width: '100%', visibility: phase >= 3 ? 'visible' : 'hidden' }}
+                >
+                    <div className="auth-card-accent" />
+                    <div className="auth-card-header">
+                        <h1 className="auth-card-title">Sign in</h1>
+                        <p className="auth-card-subtitle">Sign in to your AtlasDB workspace</p>
+                    </div>
+                    <div className="auth-card-divider" />
+                    <div className="auth-oauth">
+                        <div className="auth-oauth-label">
+                            <Shield size={14} className="auth-shield-icon" strokeWidth={2.5} />
+                            <span>Your data is encrypted and secure</span>
+                        </div>
+                        <div className="auth-google-wrap">
+                            <GoogleLogin
+                                onSuccess={handleSuccess}
+                                onError={() => setError('Google sign-in failed. Please try again.')}
+                                theme="outline"
+                                shape="rectangular"
+                                width="100%"
+                                text="continue_with"
+                                size="large"
+                            />
+                        </div>
+                    </div>
+                    {error && (
+                        <motion.div
+                            className="auth-error"
+                            initial={{ opacity: 0, y: -6 }}
+                            animate={{ opacity: 1, y: 0 }}
+                        >
+                            {error}
+                        </motion.div>
+                    )}
+                    <p className="auth-card-footer">
+                        © 2026 AtlasDB • Privacy • Terms
+                    </p>
+                </motion.div>
             </div>
-            <div>
-              <div className="login-taught-by">Taught by</div>
-              <div className="login-instructor-name">Sandeep Patil</div>
-            </div>
-          </div>
-
-          {/* Course title */}
-          <div className="login-title-block">
-            <h1 className="login-h1">
-              Data Pipeline<br />
-              <span className="login-h1-accent">Masterclass</span>
-            </h1>
-            <p className="login-desc">
-              A complete course on acquiring Kaggle datasets, provisioning a MongoDB Atlas cluster,
-              and executing a production-ready ETL pipeline using Node.js.
-            </p>
-          </div>
-
-          {/* Stats row */}
-          <div className="login-stats">
-            {stats.map((s, i) => (
-              <div key={i} className="login-stat">
-                <div className="login-stat-value">{s.value}</div>
-                <div className="login-stat-label">{s.label}</div>
-              </div>
-            ))}
-          </div>
-
-          {/* Feature list */}
-          <ul className="login-features">
-            {features.map(({ icon: Icon, text }) => (
-              <li key={text} className="login-feature-item">
-                <div className="login-feature-icon">
-                  <Icon size={14} strokeWidth={2} />
-                </div>
-                <span>{text}</span>
-              </li>
-            ))}
-          </ul>
         </motion.div>
-
-        {/* ══ RIGHT PANEL ══ */}
-        <motion.div
-          className="login-right"
-          initial={{ opacity: 0, x: 24 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.55, delay: 0.08, ease: [0.16, 1, 0.3, 1] }}
-        >
-          <div className="login-card">
-            {/* Card header */}
-            <div className="login-card-header">
-              <div className="login-card-eyebrow">
-                <span className="login-card-dot" />
-                Student Portal
-              </div>
-              <h2 className="login-card-title">Continue as a Student</h2>
-              <p className="login-card-sub">
-                Sign in to save and track your pipeline verification progress.
-              </p>
-            </div>
-
-            {/* Divider */}
-            <div className="login-card-divider" />
-
-            {/* OAuth section */}
-            <div className="login-oauth-section">
-              <div className="login-oauth-label">
-                <Shield size={11} strokeWidth={2.5} />
-                <span>Secure OAuth 2.0 — no password needed</span>
-              </div>
-
-              <div className="login-google-wrap">
-                <GoogleLogin
-                  onSuccess={handleSuccess}
-                  onError={() => setError('Google sign-in failed. Please try again.')}
-                  theme="filled_black"
-                  shape="rectangular"
-                  width="320"
-                  text="continue_with"
-                />
-              </div>
-            </div>
-
-            {/* Error */}
-            {error && (
-              <motion.div
-                className="login-error"
-                initial={{ opacity: 0, y: -6 }}
-                animate={{ opacity: 1, y: 0 }}
-              >
-                {error}
-              </motion.div>
-            )}
-
-            {/* Footer note */}
-            <p className="login-card-footer">
-              Your Google profile (name + email) is stored securely in MongoDB and is
-              only visible to Sandeep Patil.
-            </p>
-          </div>
-        </motion.div>
-      </div>
-    </div>
-  );
+    );
 }

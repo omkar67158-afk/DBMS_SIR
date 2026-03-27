@@ -1,13 +1,28 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { GraduationCap, ArrowRight, AlertCircle, Loader2, Sparkles } from 'lucide-react';
+import { ArrowRight, AlertCircle, Loader2, Sparkles } from 'lucide-react';
 import { STUDENTS } from '../students';
+import LottieLib from 'lottie-react';
+import girlStudyingData from '../../Girl Studying on Laptop..json';
+import emptyBoxData from '../../Empty Box.json';
+
+// lottie-react may come through as a CJS-wrapped object in Vite ESM mode
+const Lottie = LottieLib?.default ?? LottieLib;
 
 export default function RollNumberEntry({ user, onConfirm }) {
   const [input, setInput] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [matched, setMatched] = useState(null); // { rollNumber, fullName }
+  const [matched, setMatched] = useState(null);
+  const [phase, setPhase] = useState(0);
+
+  useEffect(() => {
+    const t1 = setTimeout(() => setPhase(1), 1000); // 1s: Welcome typing
+    const t2 = setTimeout(() => setPhase(2), 2000); // 2s: Box rolls in from bottom left
+    const t3 = setTimeout(() => setPhase(3), 4500); // 4.5s: Rollcall card zooms up
+    const t4 = setTimeout(() => setPhase(4), 5500); // 5.5s: Box rolls back to bottom left
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4); };
+  }, []);
 
   const handleLookup = () => {
     const cleaned = input.trim().toUpperCase();
@@ -43,115 +58,192 @@ export default function RollNumberEntry({ user, onConfirm }) {
   };
 
   return (
-    <div style={{
-      position: 'fixed', inset: 0, background: 'var(--bg)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      zIndex: 2000, flexDirection: 'column'
-    }}>
-      {/* Ambient glows */}
-      <div style={{ position: 'absolute', top: '15%', left: '20%', width: '500px', height: '500px', background: 'radial-gradient(ellipse, rgba(124,92,252,0.12) 0%, transparent 70%)', pointerEvents: 'none' }} />
-      <div style={{ position: 'absolute', bottom: '10%', right: '15%', width: '400px', height: '400px', background: 'radial-gradient(ellipse, rgba(20,217,151,0.07) 0%, transparent 70%)', pointerEvents: 'none' }} />
+    <motion.div
+      key="roll"
+      style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}
+    >
+      <div
+        className="auth-welcome-heading"
+        style={{ marginBottom: '16px', minHeight: '46px', display: 'flex', justifyContent: 'center' }}
+      >
+        <span className="google-blue" style={{ display: 'flex' }}>
+          {"Welcome,".split("").map((c, i) => (
+            <motion.span key={`w-${i}`} initial={{ opacity: 0 }}
+              animate={phase >= 1 ? { opacity: 1 } : { opacity: 0 }}
+              transition={{ delay: phase >= 1 ? i * 0.05 : 0 }}>
+              {c}
+            </motion.span>
+          ))}
+        </span>
+        <span style={{ display: 'flex', marginLeft: '8px' }}>
+          {(user?.name?.split(' ')[0] || "User").split("").concat(['!']).map((c, i) => (
+            <motion.span key={`n-${i}`} initial={{ opacity: 0 }}
+              animate={phase >= 1 ? { opacity: 1 } : { opacity: 0 }}
+              transition={{ delay: phase >= 1 ? (8 + i) * 0.05 : 0 }}>
+              {c}
+            </motion.span>
+          ))}
+        </span>
+      </div>
 
-      <AnimatePresence mode="wait">
-        {!matched ? (
-          /* ── Roll Number Input Screen ── */
-          <motion.div key="input"
-            initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
-            style={{ textAlign: 'center', maxWidth: '520px', width: '100%', padding: '0 24px' }}
-          >
-            {/* Icon */}
-            <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', delay: 0.1 }}
-              style={{ width: '88px', height: '88px', borderRadius: '24px', background: 'linear-gradient(135deg, var(--brand), #5b3fe0)', margin: '0 auto 32px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 60px rgba(124,92,252,0.4)' }}>
-              <GraduationCap size={44} color="#fff" strokeWidth={1.5} />
-            </motion.div>
+      <motion.p
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.2, duration: 0.6 }}
+        style={{ color: 'var(--txt-muted)', fontSize: '15px', lineHeight: '1.6', marginBottom: '50px', textAlign: 'center', maxWidth: '380px' }}
+      >
+        Before we begin, please enter your class roll number.
+      </motion.p>
 
-            <h1 style={{ fontSize: '36px', fontWeight: '800', letterSpacing: '-0.04em', marginBottom: '12px' }}>
-              Welcome, {user.name?.split(' ')[0]}!
-            </h1>
-            <p style={{ color: 'var(--txt-muted)', fontSize: '16px', lineHeight: '1.7', marginBottom: '40px' }}>
-              Before we begin, please enter your class roll number so we can verify your enrollment.
-            </p>
+      <div style={{ position: 'relative', width: '100%', maxWidth: '420px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
 
-            <div style={{ position: 'relative', marginBottom: '16px' }}>
-              <input
-                type="text"
-                value={input}
-                onChange={e => { setInput(e.target.value); setError(''); }}
-                onKeyDown={e => e.key === 'Enter' && handleLookup()}
-                placeholder="e.g. SCA33"
-                autoFocus
-                style={{
-                  width: '100%', boxSizing: 'border-box',
-                  padding: '18px 24px', fontSize: '22px', fontWeight: '700',
-                  letterSpacing: '0.1em', textAlign: 'center', textTransform: 'uppercase',
-                  background: 'var(--surface)', border: `1px solid ${error ? 'var(--red)' : 'var(--border)'}`,
-                  borderRadius: '14px', color: 'var(--txt)', outline: 'none',
-                  transition: 'border-color 0.2s',
-                }}
+        <AnimatePresence>
+          {phase >= 2 && phase < 4 && (
+            <motion.div
+              initial={{ opacity: 0, y: '60vh', x: '-60vw', rotate: -720 }}
+              animate={{ opacity: 1, y: 0, x: 0, rotate: 0 }}
+              exit={{
+                x: '-60vw',
+                y: '60vh',
+                rotate: -720,
+                opacity: 1,
+                transition: { duration: 2.5, ease: 'easeIn' }
+              }}
+              transition={{ duration: 2.5, ease: 'easeOut' }}
+              style={{
+                position: 'absolute',
+                width: '320px',
+                height: '320px',
+                zIndex: 1,
+                pointerEvents: 'none'
+              }}
+            >
+              <Lottie
+                animationData={emptyBoxData}
+                loop={false}
+                autoplay
+                rendererSettings={{ preserveAspectRatio: 'xMidYMid meet' }}
               />
-            </div>
-
-            <AnimatePresence>
-              {error && (
-                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
-                  style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--red-fade)', border: '1px solid rgba(248,113,113,0.2)', borderRadius: '10px', padding: '12px 16px', marginBottom: '16px', textAlign: 'left' }}>
-                  <AlertCircle size={16} color="var(--red)" style={{ flexShrink: 0 }} />
-                  <span style={{ color: 'var(--red)', fontSize: '14px', fontWeight: '500' }}>{error}</span>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            <button className="btn btn-primary" onClick={handleLookup}
-              style={{ width: '100%', padding: '16px', fontSize: '16px', justifyContent: 'center', gap: '10px' }}>
-              Find My Profile <ArrowRight size={18} />
-            </button>
-
-            <p style={{ marginTop: '20px', fontSize: '12px', color: 'var(--txt-faint)' }}>
-              Your roll number starts with "SCA" (e.g. SCA01, SCA45).
-            </p>
-          </motion.div>
-
-        ) : (
-          /* ── Welcome Confirmation Screen ── */
-          <motion.div key="confirm"
-            initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.02 }}
-            style={{ textAlign: 'center', maxWidth: '580px', width: '100%', padding: '0 24px' }}
-          >
-            {/* Celebration */}
-            <motion.div initial={{ scale: 0, rotate: -10 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: 'spring', stiffness: 200 }}
-              style={{ width: '100px', height: '100px', borderRadius: '28px', background: 'linear-gradient(135deg, #d4af37, #aa8222)', margin: '0 auto 32px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 60px rgba(212,175,55,0.4)' }}>
-              <Sparkles size={50} color="#fff" strokeWidth={1.5} />
             </motion.div>
+          )}
+        </AnimatePresence>
 
-            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '20px', padding: '36px 40px', marginBottom: '28px' }}>
-              <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--brand)', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: '8px' }}>
+        <AnimatePresence mode="wait">
+          {!matched ? (
+            /* ── Input Screen ── */
+            <motion.div
+              key="input-screen"
+              className="auth-card"
+              initial={{ opacity: 0, scale: 0 }}
+              animate={phase >= 3 ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.7, type: 'spring', bounce: 0.4 }}
+              style={{ width: '100%', position: 'relative', overflow: 'visible', paddingTop: 0, marginTop: '20px', visibility: phase >= 3 ? 'visible' : 'hidden', zIndex: 10 }}
+            >
+              <div className="auth-card-accent" />
+
+              <div style={{ display: 'flex', justifyContent: 'center', marginTop: '-75px', marginBottom: '-25px', position: 'relative', zIndex: 10, pointerEvents: 'none' }}>
+                <div style={{ width: '220px', height: '180px' }}>
+                  <Lottie
+                    animationData={girlStudyingData}
+                    loop
+                    autoplay
+                    rendererSettings={{ preserveAspectRatio: 'xMidYMid slice' }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ padding: '0 32px 32px 32px', position: 'relative', zIndex: 20 }}>
+                <div style={{ position: 'relative', marginBottom: '16px' }}>
+                  <input
+                    type="text"
+                    value={input}
+                    onChange={e => { setInput(e.target.value); setError(''); }}
+                    onKeyDown={e => e.key === 'Enter' && handleLookup()}
+                    placeholder="e.g. SCA33"
+                    autoFocus
+                    style={{
+                      width: '100%', boxSizing: 'border-box',
+                      padding: '16px 20px', fontSize: '20px', fontWeight: '700',
+                      letterSpacing: '0.08em', textAlign: 'center', textTransform: 'uppercase',
+                      background: '#fff', border: `2px solid ${error ? 'var(--red)' : '#e2e8f0'}`,
+                      borderRadius: '12px', color: 'var(--txt)', outline: 'none',
+                      transition: 'border-color 0.2s',
+                      boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.02)'
+                    }}
+                    onFocus={e => e.target.style.borderColor = error ? 'var(--red)' : '#cbd5e1'}
+                    onBlur={e => e.target.style.borderColor = error ? 'var(--red)' : '#e2e8f0'}
+                  />
+                </div>
+
+                <AnimatePresence>
+                  {error && (
+                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+                      style={{ overflow: 'hidden', marginBottom: '16px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--red-fade)', border: '1px solid rgba(248,113,113,0.2)', borderRadius: '10px', padding: '12px 16px', textAlign: 'left' }}>
+                        <AlertCircle size={16} color="var(--red)" style={{ flexShrink: 0 }} />
+                        <span style={{ color: 'var(--red)', fontSize: '13px', fontWeight: '500' }}>{error}</span>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                <button className="btn btn-primary" onClick={handleLookup}
+                  style={{ width: '100%', padding: '14px', fontSize: '15px', justifyContent: 'center', gap: '8px', borderRadius: '10px' }}>
+                  Find My Profile <ArrowRight size={16} />
+                </button>
+
+                <p style={{ marginTop: '20px', fontSize: '12px', color: 'var(--txt-faint)', textAlign: 'center', margin: '20px 0 0' }}>
+                  Your roll number starts with "SCA" (e.g. SCA01, SCA45).
+                </p>
+              </div>
+            </motion.div>
+          ) : (
+            /* ── Welcome Confirmation Screen ── */
+            <motion.div
+              key="confirm-screen"
+              className="auth-card"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 1.05 }}
+              transition={{ duration: 0.5, type: 'spring', bounce: 0.3 }}
+              style={{ width: '100%', position: 'relative', overflow: 'hidden', padding: '40px 32px 32px 32px', textAlign: 'center' }}
+            >
+              <div className="auth-card-accent" />
+
+              <motion.div initial={{ scale: 0, rotate: -10 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: 'spring', stiffness: 200, delay: 0.1 }}
+                style={{ width: '80px', height: '80px', borderRadius: '24px', background: 'linear-gradient(135deg, #d4af37, #aa8222)', margin: '0 auto 24px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 50px rgba(212,175,55,0.3)' }}>
+                <Sparkles size={40} color="#fff" strokeWidth={1.5} />
+              </motion.div>
+
+              <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--brand)', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: '8px' }}>
                 Roll Number Confirmed
               </div>
-              <div style={{ fontSize: '52px', fontWeight: '900', letterSpacing: '0.1em', color: '#d4af37', marginBottom: '8px' }}>
+              <div style={{ fontSize: '44px', fontWeight: '900', letterSpacing: '0.08em', color: '#d4af37', marginBottom: '8px' }}>
                 {matched.rollNumber}
               </div>
-              <div style={{ fontSize: '24px', fontWeight: '700', letterSpacing: '-0.02em', color: 'var(--txt)', lineHeight: 1.3, marginBottom: '16px' }}>
+              <div style={{ fontSize: '20px', fontWeight: '700', letterSpacing: '-0.02em', color: 'var(--txt)', lineHeight: 1.3, marginBottom: '20px' }}>
                 {matched.fullName}
               </div>
-              <div style={{ height: '1px', background: 'var(--border)', marginBottom: '16px' }} />
-              <p style={{ color: 'var(--txt-muted)', fontSize: '14px', lineHeight: '1.7', margin: 0 }}>
-                You are officially enrolled in the <strong style={{ color: 'var(--txt)' }}>Data Pipeline Masterclass</strong>. Your progress will be saved against your roll number throughout the course.
+              <div style={{ height: '1px', background: 'var(--border)', marginBottom: '20px' }} />
+              <p style={{ color: 'var(--txt-muted)', fontSize: '13px', lineHeight: '1.6', margin: '0 0 28px' }}>
+                You are officially enrolled. Your progress will be saved automatically throughout the entire masterclass.
               </p>
-            </div>
 
-            <div style={{ display: 'flex', gap: '12px' }}>
-              <button className="btn btn-ghost" onClick={() => { setMatched(null); setInput(''); }}
-                style={{ flex: 1, padding: '14px', fontSize: '14px', justifyContent: 'center' }}>
-                Not me
-              </button>
-              <button className="btn btn-primary" onClick={handleConfirm} disabled={loading}
-                style={{ flex: 2, padding: '14px', fontSize: '16px', justifyContent: 'center', gap: '10px', opacity: loading ? 0.7 : 1 }}>
-                {loading ? <><Loader2 size={18} className="spin" />Registering...</> : <>Start Course <ArrowRight size={18} /></>}
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <button className="btn btn-ghost" onClick={() => { setMatched(null); setInput(''); }}
+                  style={{ flex: 1, padding: '12px', fontSize: '13px', justifyContent: 'center', borderRadius: '10px' }}>
+                  Not me
+                </button>
+                <button className="btn btn-primary" onClick={handleConfirm} disabled={loading}
+                  style={{ flex: 2, padding: '12px', fontSize: '15px', justifyContent: 'center', gap: '8px', opacity: loading ? 0.7 : 1, borderRadius: '10px' }}>
+                  {loading ? <><Loader2 size={16} className="spin" />Registering...</> : <>Start Course <ArrowRight size={16} /></>}
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </motion.div>
   );
 }
