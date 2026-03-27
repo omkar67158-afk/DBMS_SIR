@@ -323,7 +323,18 @@ function App() {
 
 
             {/* ══════ PREMIUM SIDEBAR ══════ */}
-            <aside className="sidebar" style={{ width: '260px', flexShrink: 0, overflowY: 'auto', borderRight: '1px solid var(--border)' }}>
+            <AnimatePresence>
+              {activeTab !== 'race' && (
+                <motion.aside 
+                  className="sidebar" 
+                  initial={{ x: -260, width: 0, opacity: 0 }}
+                  animate={{ x: 0, width: 260, opacity: 1 }}
+                  exit={{ x: -260, width: 0, opacity: 0 }}
+                  transition={{ duration: 0.5, ease: [0.32, 0.72, 0, 1] }}
+                  style={{ flexShrink: 0, borderRight: '1px solid var(--border)', overflow: 'hidden' }}
+                >
+                  <div style={{ width: '260px', height: '100%', overflowY: 'auto' }}>
+
 
               {/* Student Card */}
               {user.name && (
@@ -492,10 +503,13 @@ function App() {
                   🎓 Certificate Issued
                 </div>
               )}
-            </aside>
+                  </div>
+                </motion.aside>
+              )}
+            </AnimatePresence>
 
             {/* ══════ MAIN CONTENT ══════ */}
-            <main className="main-content" style={{ flex: 1, overflowY: activeTab === 'race' ? 'auto' : 'hidden' }}>
+            <main className="main-content" style={{ flex: 1, overflowY: 'hidden', display: 'flex', flexDirection: 'column', padding: activeTab === 'race' ? 0 : undefined }}>
               {activeTab === 'course' ? (
                 currentStep > total ? (
                   <Certificate name={user.name} email={user.email} completedAt={user.completedAt} rollNumber={user.rollNumber} />
@@ -503,31 +517,34 @@ function App() {
                   <StepWizard user={{ ...user, currentStep: actualStep }} maxStep={currentStep} refreshUser={fetchProgress} dashPhase={dashPhase} />
                 )
               ) : (
-                <div style={{ background: '#ffffff', minHeight: '100%', padding: '28px 32px', overflowY: 'auto' }}>
-                  <RaceLeaderboard user={user} />
-                </div>
+                <RaceLeaderboard user={user} />
               )}
                 </main>
             </motion.div>
 
             {/* ══════ RIGHT LOTTIE PANEL ══════ */}
-            {activeTab !== 'race' && (
-            <motion.div 
-                className="auth-lottie-panel"
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
-                style={{ width: '450px', flexShrink: 0, borderLeft: 'none', padding: 0, display: 'flex', justifyContent: 'flex-end', overflow: 'hidden' }}
-            >
-                <Lottie
-                    animationData={untitledData}
-                    loop
-                    autoplay
-                    style={{ width: '100%', height: '100%' }}
-                    rendererSettings={{ preserveAspectRatio: 'xMidYMid meet' }}
-                />
-            </motion.div>
-            )}
+            <AnimatePresence>
+              {activeTab !== 'race' && (
+                <motion.div 
+                    className="auth-lottie-panel"
+                    initial={{ y: 50, opacity: 0, width: 0 }}
+                    animate={{ y: 0, opacity: 1, width: 450 }}
+                    exit={{ y: 200, opacity: 0, width: 0 }}
+                    transition={{ duration: 0.5, ease: [0.32, 0.72, 0, 1] }}
+                    style={{ flexShrink: 0, borderLeft: 'none', padding: 0, display: 'flex', justifyContent: 'flex-end', overflow: 'hidden' }}
+                >
+                    <div style={{ width: '450px', height: '100%' }}>
+                      <Lottie
+                          animationData={untitledData}
+                          loop
+                          autoplay
+                          style={{ width: '100%', height: '100%' }}
+                          rendererSettings={{ preserveAspectRatio: 'xMidYMid meet' }}
+                      />
+                    </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
           </motion.div>
         )}

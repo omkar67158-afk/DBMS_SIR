@@ -1,9 +1,8 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-    RefreshCw, Trophy, CheckCircle2, Clock, AlertCircle,
-    TrendingUp, Zap, Target, Award, Medal
-} from 'lucide-react';
+import { Canvas, useFrame } from '@react-three/fiber';
+import { useGLTF, OrbitControls, ContactShadows, Environment } from '@react-three/drei';
+import { TrendingUp, Zap, Award, AlertCircle, Hash } from 'lucide-react';
 import axios from 'axios';
 
 const TOTAL_STEPS = 8;
@@ -12,17 +11,10 @@ const MAX_SCORE = 800;
 const COLORS = {
     brand: '#2563eb',
     brandLight: '#eff6ff',
-    brandBorder: '#bfdbfe',
     green: '#059669',
-    greenLight: '#ecfdf5',
-    greenBorder: '#6ee7b7',
     amber: '#d97706',
-    amberLight: '#fffbeb',
-    amberBorder: '#fcd34d',
     red: '#dc2626',
-    redLight: '#fee2e2',
-    gray: '#6b7280',
-    grayLight: '#f9fafb',
+    indigo: '#6366f1',
     border: '#e5e7eb',
     text: '#111827',
     textMuted: '#6b7280',
@@ -51,42 +43,6 @@ function getInitials(name) {
     return name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
 }
 
-function getTier(pct) {
-    if (pct >= 80) return { label: 'Elite', color: COLORS.amber, bg: COLORS.amberLight, border: COLORS.amberBorder, icon: '⚡' };
-    if (pct >= 60) return { label: 'Advanced', color: COLORS.brand, bg: COLORS.brandLight, border: COLORS.brandBorder, icon: '🚀' };
-    if (pct >= 30) return { label: 'Rising', color: COLORS.green, bg: COLORS.greenLight, border: COLORS.greenBorder, icon: '🌱' };
-    return { label: 'Active', color: COLORS.gray, bg: '#f3f4f6', border: '#d1d5db', icon: '💡' };
-}
-
-/* ── Smooth Progress Bar ── */
-function ProgressBar({ pct, color, height = 6, animate = true }) {
-    return (
-        <div style={{ height, borderRadius: 99, background: '#f3f4f6', overflow: 'hidden', width: '100%' }}>
-            <motion.div
-                initial={{ width: animate ? 0 : `${pct}%` }}
-                animate={{ width: `${Math.min(Math.max(pct, 0), 100)}%` }}
-                transition={{ duration: 1.2, ease: [0.22, 1, 0.36, 1] }}
-                style={{ height: '100%', borderRadius: 99, background: color }}
-            />
-        </div>
-    );
-}
-
-/* ── Step Squares ── */
-function StepDots({ stepsCompleted, color }) {
-    return (
-        <div style={{ display: 'flex', gap: 3 }}>
-            {Array.from({ length: TOTAL_STEPS }, (_, i) => (
-                <div key={i} style={{
-                    width: 8, height: 8, borderRadius: 2,
-                    background: i < stepsCompleted ? color : '#e5e7eb',
-                    transition: `background 0.3s ease ${i * 0.05}s`,
-                }} />
-            ))}
-        </div>
-    );
-}
-
 /* ── Skeleton ── */
 function SkeletonRow({ delay = 0 }) {
     return (
@@ -96,7 +52,6 @@ function SkeletonRow({ delay = 0 }) {
             background: '#fafafa', border: '1px solid #f3f4f6',
             animation: `skeletonPulse 1.4s ease-in-out ${delay}s infinite alternate`,
         }}>
-            <div style={{ width: 28, height: 14, borderRadius: 4, background: '#e5e7eb' }} />
             <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#e5e7eb' }} />
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 7 }}>
                 <div style={{ width: '38%', height: 10, borderRadius: 4, background: '#e5e7eb' }} />
@@ -107,479 +62,530 @@ function SkeletonRow({ delay = 0 }) {
     );
 }
 
-/* ── Stat Tile ── */
-function StatTile({ icon, label, value, color, bg, border }) {
+/* ── Animated Flip Button ── */
+function AnimatedStatButton({ label, value, color, icon, small }) {
+    const [revealed, setRevealed] = useState(false);
+
+    useEffect(() => {
+        if (revealed) {
+            const t = setTimeout(() => setRevealed(false), 10000);
+            return () => clearTimeout(t);
+        }
+    }, [revealed]);
+
+    const w = small ? 110 : 130;
+    const h = small ? 52 : 60;
+
     return (
-        <div style={{
-            background: bg, border: `1px solid ${border}`, borderRadius: 14,
-            padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 6,
-            flex: 1, minWidth: 80,
-        }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                {icon}
-                <span style={{ fontSize: 11, fontWeight: 600, color: COLORS.textMuted, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</span>
-            </div>
-            <div style={{ fontSize: 22, fontWeight: 800, color, lineHeight: 1 }}>{value}</div>
+        <div
+            style={{ perspective: 1000, width: w, height: h, zIndex: 20, cursor: 'pointer' }}
+            onClick={() => setRevealed(r => !r)}
+        >
+            <motion.div
+                initial={false}
+                animate={{ rotateX: revealed ? 180 : 0 }}
+                transition={{ duration: 0.6, type: 'spring', stiffness: 200, damping: 20 }}
+                style={{ width: '100%', height: '100%', position: 'relative', transformStyle: 'preserve-3d' }}
+            >
+                {/* Front */}
+                <div style={{
+                    position: 'absolute', inset: 0, backfaceVisibility: 'hidden',
+                    background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(12px)',
+                    borderRadius: 14, border: `1px solid ${COLORS.border}`,
+                    boxShadow: '0 4px 16px rgba(0,0,0,0.07)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+                }}>
+                    {icon}
+                    <span style={{ fontWeight: 800, color: COLORS.textMuted, fontSize: small ? 11 : 13 }}>{label}</span>
+                </div>
+                {/* Back */}
+                <div style={{
+                    position: 'absolute', inset: 0, backfaceVisibility: 'hidden',
+                    background: color, transform: 'rotateX(180deg)',
+                    borderRadius: 14, border: `1px solid ${color}`,
+                    boxShadow: `0 8px 28px ${color}66`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                    <span style={{ fontSize: small ? 16 : 20, fontWeight: 900, color: '#fff' }}>{value}</span>
+                </div>
+            </motion.div>
         </div>
     );
 }
 
-/* ═══════════════════════════════════════════════
-   MAIN COMPONENT
-═══════════════════════════════════════════════ */
+/* ── Attractive 3D Stages (Redesigned) ── */
+const Podium3D = ({ racer, pos, isSelected, onClick }) => {
+    if (!racer) return null;
+
+    const cfg = {
+        1: {
+            h: 140, w: 120,
+            base: 'linear-gradient(180deg, #fcd34d 0%, #b45309 100%)',
+            top: '#fde68a',
+            bottom: '#78350f',
+            glow: 'rgba(251, 191, 36, 0.6)',
+            color: '#fbbf24',
+            emoji: '👑',
+        },
+        2: {
+            h: 100, w: 110,
+            base: 'linear-gradient(180deg, #cbd5e1 0%, #334155 100%)',
+            top: '#e2e8f0',
+            bottom: '#1e293b',
+            glow: 'rgba(148, 163, 184, 0.6)',
+            color: '#94a3b8',
+            emoji: '⭐',
+        },
+        3: {
+            h: 70, w: 100,
+            base: 'linear-gradient(180deg, #fdba74 0%, #7c2d12 100%)',
+            top: '#ffedd5',
+            bottom: '#431407',
+            glow: 'rgba(217, 119, 6, 0.6)',
+            color: '#d97706',
+            emoji: '🔥',
+        },
+    }[pos];
+
+    const lift = isSelected ? -15 : 0;
+    const scale = isSelected ? 1.05 : 0.95;
+
+    return (
+        <div
+            onClick={onClick}
+            style={{
+                display: 'flex', flexDirection: 'column', alignItems: 'center',
+                justifyContent: 'flex-end', cursor: 'pointer', userSelect: 'none',
+                transition: 'all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                transform: `translateY(${lift}px) scale(${scale})`,
+                opacity: isSelected ? 1 : 0.7,
+                zIndex: pos === 1 ? 10 : 5,
+                margin: '0 -5px',
+            }}
+        >
+            {/* ── Suspended Racer Card ── */}
+            <div style={{
+                textAlign: 'center', marginBottom: 16,
+                position: 'relative', zIndex: 10,
+                animation: isSelected ? 'floatRacer 3s ease-in-out infinite' : 'none',
+            }}>
+                <div style={{
+                    fontSize: pos === 1 ? 48 : 36,
+                    filter: `drop-shadow(0 10px 10px rgba(0,0,0,0.2))`,
+                }}>
+                    {cfg.emoji}
+                </div>
+                <div style={{
+                    marginTop: 8, padding: '6px 18px', borderRadius: 24,
+                    background: 'rgba(255, 255, 255, 1)',
+                    border: `2px solid ${cfg.color}`,
+                    boxShadow: `0 8px 24px ${cfg.glow}, 0 4px 8px rgba(0,0,0,0.1)`,
+                    fontSize: pos === 1 ? 16 : 14,
+                    fontWeight: 900, color: '#0f172a',
+                    whiteSpace: 'nowrap',
+                }}>
+                    {racer.name?.split(' ')[0]}
+                </div>
+                <div style={{
+                    fontSize: pos === 1 ? 16 : 14, fontWeight: 900,
+                    color: '#fff', marginTop: 8,
+                    background: cfg.color, padding: '4px 12px', borderRadius: 12,
+                    display: 'inline-block',
+                    boxShadow: `0 4px 12px ${cfg.glow}`,
+                }}>
+                    #{pos} • {racer.scorePercent}%
+                </div>
+            </div>
+
+            {/* ── True 3D CSS Cylinder Pedestal ── */}
+            <div style={{
+                position: 'relative',
+                width: cfg.w,
+                height: cfg.h + (cfg.w * 0.25),
+                filter: `drop-shadow(0 20px 20px rgba(0,0,0,0.15))`,
+            }}>
+                {/* Top Ellipse (The Platform) */}
+                <div style={{
+                    position: 'absolute', top: 0, left: 0,
+                    width: '100%', height: cfg.w * 0.3,
+                    background: cfg.top,
+                    borderRadius: '50%',
+                    border: '2px solid rgba(255,255,255,0.8)',
+                    boxShadow: `inset 0 -10px 20px rgba(0,0,0,0.1)`,
+                    zIndex: 3,
+                }} />
+
+                {/* Body (The Extrusion) */}
+                <div style={{
+                    position: 'absolute', top: cfg.w * 0.15, left: 0,
+                    width: '100%', height: cfg.h,
+                    background: cfg.base,
+                    zIndex: 2,
+                }}>
+                    {/* Vertical Highlight for 3D Specular effect */}
+                    <div style={{
+                        position: 'absolute', top: 0, left: '20%', width: '15%', height: '100%',
+                        background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent)',
+                    }} />
+                     <div style={{
+                        position: 'absolute', top: 0, right: '10%', width: '10%', height: '100%',
+                        background: 'linear-gradient(90deg, transparent, rgba(0,0,0,0.15), transparent)',
+                    }} />
+                </div>
+
+                {/* Bottom Ellipse (The Curved Base) */}
+                <div style={{
+                    position: 'absolute', top: cfg.h, left: 0,
+                    width: '100%', height: cfg.w * 0.3,
+                    background: cfg.bottom,
+                    borderRadius: '50%',
+                    zIndex: 1,
+                }} />
+            </div>
+            
+            {/* ── Ground Glow ── */}
+            <div style={{
+                position: 'absolute', bottom: -10, left: '50%',
+                transform: 'translateX(-50%)',
+                width: cfg.w * 1.5, height: 20,
+                background: `radial-gradient(ellipse, ${cfg.glow} 0%, transparent 70%)`,
+                zIndex: 0,
+            }} />
+        </div>
+    );
+};
+
+
+/* ── 3D Model ── */
+function StudentModel() {
+    const { scene } = useGLTF('/models/ai_aesthetic_apocalypse.glb');
+    const ref = useRef();
+    useFrame((state) => {
+        if (ref.current) {
+            ref.current.position.y = Math.sin(state.clock.elapsedTime * 1.5) * 0.05 - 2.6;
+        }
+    });
+    return (
+        <group ref={ref} dispose={null} scale={2.2} position={[0, -2.6, 0]}>
+            <primitive object={scene} />
+        </group>
+    );
+}
+
+/* ══ MAIN COMPONENT ══ */
 export default function RaceLeaderboard({ user }) {
     const [racers, setRacers] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [lastUpdate, setLastUpdate] = useState(null);
-    const [refreshing, setRefreshing] = useState(false);
-    const [countdown, setCountdown] = useState(15);
+    const [selectedStudentId, setSelectedStudentId] = useState(null);
     const intervalRef = useRef(null);
-    const countdownRef = useRef(null);
 
-    const fetchLeaderboard = async (showSpinner = false) => {
-        if (showSpinner) setRefreshing(true);
+    const fetchLeaderboard = async () => {
         try {
             const token = localStorage.getItem('token');
             const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/leaderboard`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             setRacers((res.data || []).map(normalise));
-            setLastUpdate(new Date());
             setLoading(false);
-        } catch (err) {
-            console.error('Leaderboard fetch failed', err);
+        } catch {
             setLoading(false);
-        } finally {
-            setRefreshing(false);
-            setCountdown(15);
         }
     };
 
     useEffect(() => {
         fetchLeaderboard();
-        intervalRef.current = setInterval(() => fetchLeaderboard(), 15000);
-        countdownRef.current = setInterval(() => setCountdown(c => c <= 1 ? 15 : c - 1), 1000);
-        return () => { clearInterval(intervalRef.current); clearInterval(countdownRef.current); };
+        intervalRef.current = setInterval(fetchLeaderboard, 15000);
+        return () => clearInterval(intervalRef.current);
     }, []);
 
+    const yourData = racers.find(r => r.rollNumber === user?.rollNumber);
+
+    useEffect(() => {
+        if (!selectedStudentId && yourData) setSelectedStudentId(yourData.rollNumber);
+        else if (!selectedStudentId && racers.length > 0) setSelectedStudentId(racers[0].rollNumber);
+    }, [racers, selectedStudentId, yourData]);
+
     if (loading) return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '40px 24px' }}>
             {[0, 0.1, 0.2, 0.3, 0.4].map((d, i) => <SkeletonRow key={i} delay={d} />)}
-            <div style={{ textAlign: 'center', marginTop: 20, fontSize: 13, color: COLORS.textFaint, fontWeight: 500 }}>
-                Loading leaderboard…
-            </div>
         </div>
     );
 
-    const yourData = racers.find(r => r.rollNumber === user?.rollNumber);
-    const yourPos = racers.findIndex(r => r.rollNumber === user?.rollNumber) + 1;
+    const top3 = racers.slice(0, 3);
+    const restOfStudents = racers.slice(3);
+    const selectedStudentData = racers.find(r => r.rollNumber === selectedStudentId) || racers[0];
+    const selectedStudentRank = racers.findIndex(r => r.rollNumber === selectedStudentId) + 1;
 
     return (
-        <div style={{ fontFamily: 'inherit', paddingBottom: 48, maxWidth: 960, margin: '0 auto' }}>
+        <div style={{
+            display: 'flex',
+            flex: 1,
+            height: '100%',
+            width: '100%',
+            overflow: 'hidden',
+            background: '#f8fafc',
+            fontFamily: 'inherit',
+            position: 'relative',
+        }}>
+            {/* ═══ LEFT COLUMN ═══ */}
+            <div style={{
+                width: '30%',
+                flexShrink: 0,
+                display: 'flex',
+                flexDirection: 'column',
+                borderRight: '1px solid #e5e7eb',
+                background: 'transparent',
+                overflow: 'hidden',
+            }}>
 
-            {/* ─── HERO HEADER ─── */}
-            <motion.div
-                initial={{ opacity: 0, y: -12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.45 }}
-                style={{
-                    background: 'linear-gradient(135deg, #ffffff 0%, #f8faff 100%)',
-                    border: `1px solid ${COLORS.border}`, borderRadius: 20,
-                    padding: '24px 32px', marginBottom: 20,
-                    boxShadow: '0 1px 4px rgba(0,0,0,0.06), 0 4px 16px rgba(37,99,235,0.06)',
-                    position: 'relative', overflow: 'hidden',
-                }}
-            >
-                {/* Decorative top-left corner accent */}
+                {/* ── 3D Podium ── */}
                 <div style={{
-                    position: 'absolute', top: 0, left: 0, right: 0, height: 3,
-                    background: 'linear-gradient(90deg, #2563eb 0%, #3b82f6 40%, #60a5fa 100%)',
-                    borderRadius: '20px 20px 0 0',
-                }} />
-
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
-                    {/* Title */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                        <div style={{
-                            width: 48, height: 48, borderRadius: 14,
-                            background: 'linear-gradient(135deg, #2563eb 0%, #3b82f6 100%)',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            boxShadow: '0 4px 14px rgba(37,99,235,0.3)',
-                        }}>
-                            <Trophy size={22} color="#fff" />
-                        </div>
-                        <div>
-                            <h1 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: COLORS.text, letterSpacing: '-0.03em', lineHeight: 1.2 }}>
-                                Course Leaderboard
-                            </h1>
-                            <p style={{ margin: '3px 0 0', fontSize: 13, color: COLORS.textMuted, fontWeight: 500 }}>
-                                Live rankings · {racers.length} student{racers.length !== 1 ? 's' : ''} competing
-                            </p>
-                        </div>
-                    </div>
-
-                    {/* Controls */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        {lastUpdate && (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: COLORS.textFaint, fontWeight: 500 }}>
-                                <Clock size={12} />
-                                {lastUpdate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                            </div>
-                        )}
-                        <button
-                            onClick={() => fetchLeaderboard(true)}
-                            style={{
-                                display: 'flex', alignItems: 'center', gap: 6,
-                                background: '#fff', border: `1px solid ${COLORS.border}`,
-                                borderRadius: 10, padding: '8px 16px', cursor: 'pointer',
-                                fontSize: 13, fontWeight: 600, color: COLORS.text,
-                                transition: 'all 0.15s', boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
-                            }}
-                            onMouseEnter={e => { e.currentTarget.style.background = '#f9fafb'; e.currentTarget.style.borderColor = '#d1d5db'; }}
-                            onMouseLeave={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.borderColor = COLORS.border; }}
-                        >
-                            <RefreshCw size={13} style={{ animation: refreshing ? 'spinAnim 0.7s linear infinite' : 'none', color: refreshing ? COLORS.brand : 'inherit' }} />
-                            {refreshing ? 'Refreshing…' : `${countdown}s`}
-                        </button>
-                        <div style={{
-                            display: 'flex', alignItems: 'center', gap: 6,
-                            background: COLORS.redLight, border: '1px solid #fca5a5',
-                            borderRadius: 20, padding: '6px 14px',
-                            fontSize: 11, fontWeight: 700, color: COLORS.red, letterSpacing: '0.06em',
-                        }}>
-                            <div style={{ width: 7, height: 7, borderRadius: '50%', background: COLORS.red, animation: 'liveDot 1.2s ease-in-out infinite' }} />
-                            LIVE
-                        </div>
+                    padding: '28px 16px 16px',
+                    background: 'transparent',
+                    borderBottom: '1px solid #e5e7eb',
+                    flexShrink: 0,
+                }}>
+                    <div style={{
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'flex-end',
+                        gap: 6,
+                        minHeight: 240,
+                        paddingBottom: 8,
+                    }}>
+                        {/* Order: 2nd, 1st, 3rd — 1st in center */}
+                        <Podium3D
+                            racer={top3[1]}
+                            pos={2}
+                            isSelected={selectedStudentId === top3[1]?.rollNumber}
+                            onClick={() => top3[1] && setSelectedStudentId(top3[1].rollNumber)}
+                        />
+                        <Podium3D
+                            racer={top3[0]}
+                            pos={1}
+                            isSelected={selectedStudentId === top3[0]?.rollNumber}
+                            onClick={() => top3[0] && setSelectedStudentId(top3[0].rollNumber)}
+                        />
+                        <Podium3D
+                            racer={top3[2]}
+                            pos={3}
+                            isSelected={selectedStudentId === top3[2]?.rollNumber}
+                            onClick={() => top3[2] && setSelectedStudentId(top3[2].rollNumber)}
+                        />
                     </div>
                 </div>
-            </motion.div>
 
-            {/* ─── YOU ARE HERE ─── */}
-            {yourData ? (
-                <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.4, delay: 0.08 }}
-                    style={{
-                        background: 'linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%)',
-                        border: '1.5px solid #bfdbfe', borderRadius: 20,
-                        padding: '22px 28px', marginBottom: 20,
-                        boxShadow: '0 4px 20px rgba(37,99,235,0.08)',
-                        position: 'relative', overflow: 'hidden',
-                    }}
-                >
-                    <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, background: 'linear-gradient(180deg, #2563eb, #3b82f6)', borderRadius: '20px 0 0 20px' }} />
-
-                    {/* Header */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18 }}>
-                        <div style={{ width: 28, height: 28, borderRadius: 8, background: COLORS.brand, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <Target size={15} color="#fff" />
+                {/* ── Scrollable List ── */}
+                <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', background: 'transparent' }}>
+                    {restOfStudents.length === 0 && (
+                        <div style={{ padding: 24, textAlign: 'center', color: COLORS.textFaint, fontSize: 13 }}>
+                            No other racers yet
                         </div>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: COLORS.brand, letterSpacing: '0.02em' }}>Your Standing</span>
-                    </div>
-
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-                        {/* Avatar */}
-                        <div style={{ position: 'relative', flexShrink: 0 }}>
-                            <div style={{
-                                width: 54, height: 54, borderRadius: '50%',
-                                background: 'linear-gradient(135deg, #2563eb, #60a5fa)',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                fontSize: 18, fontWeight: 800, color: '#fff',
-                                boxShadow: '0 4px 12px rgba(37,99,235,0.3)',
-                                border: '3px solid #fff',
-                            }}>
-                                {getInitials(yourData.name)}
-                            </div>
-                            <div style={{
-                                position: 'absolute', bottom: -4, left: '50%', transform: 'translateX(-50%)',
-                                background: COLORS.brand, color: '#fff',
-                                fontSize: 8, fontWeight: 800, letterSpacing: '0.06em',
-                                padding: '2px 7px', borderRadius: 6, whiteSpace: 'nowrap',
-                                boxShadow: '0 2px 6px rgba(37,99,235,0.35)',
-                            }}>YOU</div>
-                        </div>
-
-                        {/* Name + rank */}
-                        <div style={{ minWidth: 100 }}>
-                            <div style={{ fontSize: 17, fontWeight: 800, color: COLORS.text, letterSpacing: '-0.02em' }}>{yourData.name?.split(' ')[0] ?? '—'}</div>
-                            <div style={{ fontSize: 11, color: COLORS.textFaint, fontFamily: 'monospace', marginTop: 2 }}>{yourData.rollNumber}</div>
-                        </div>
-
-                        {/* Rank badge */}
-                        <div style={{
-                            background: '#fff', border: `1.5px solid ${COLORS.brandBorder}`,
-                            borderRadius: 14, padding: '10px 18px', textAlign: 'center', flexShrink: 0,
-                            boxShadow: '0 1px 4px rgba(37,99,235,0.08)',
-                        }}>
-                            <div style={{ fontSize: 10, fontWeight: 700, color: COLORS.textFaint, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Rank</div>
-                            <div style={{ fontSize: 28, fontWeight: 900, color: COLORS.brand, lineHeight: 1.1 }}>#{yourPos}</div>
-                            <div style={{ fontSize: 10, color: COLORS.textFaint }}>of {racers.length}</div>
-                        </div>
-
-                        <div style={{ width: 1, height: 48, background: COLORS.brandBorder, flexShrink: 0 }} />
-
-                        {/* Mini stat tiles */}
-                        <StatTile icon={<TrendingUp size={13} color={COLORS.brand} />} label="Score" value={`${yourData.scorePercent}%`} color={COLORS.brand} bg="#fff" border={COLORS.brandBorder} />
-                        <StatTile icon={<Zap size={13} color={COLORS.green} />} label="Steps" value={`${yourData.stepsCompleted}/${TOTAL_STEPS}`} color={COLORS.green} bg="#fff" border={COLORS.greenBorder} />
-                        <StatTile icon={<Award size={13} color={COLORS.amber} />} label="Points" value={yourData.netScore} color={COLORS.amber} bg="#fff" border={COLORS.amberBorder} />
-                        {yourData.rejectionCount > 0 && (
-                            <StatTile icon={<AlertCircle size={13} color={COLORS.red} />} label="Penalties" value={yourData.rejectionCount} color={COLORS.red} bg={COLORS.redLight} border="#fca5a5" />
-                        )}
-
-                        {/* Progress */}
-                        <div style={{ flex: 1, minWidth: 140 }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                                <span style={{ fontSize: 11, color: COLORS.textMuted, fontWeight: 600 }}>Course Progress</span>
-                                <span style={{ fontSize: 11, color: COLORS.brand, fontWeight: 700 }}>{yourData.scorePercent}%</span>
-                            </div>
-                            <ProgressBar pct={yourData.scorePercent} color={COLORS.brand} height={7} />
-                            <div style={{ marginTop: 8 }}>
-                                <StepDots stepsCompleted={yourData.stepsCompleted} color={COLORS.brand} />
-                            </div>
-                        </div>
-                    </div>
-                </motion.div>
-            ) : (
-                <motion.div
-                    initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                    style={{
-                        marginBottom: 20, padding: '16px 24px', borderRadius: 14,
-                        background: COLORS.amberLight, border: `1px solid ${COLORS.amberBorder}`,
-                        fontSize: 14, color: '#92400e', fontWeight: 500,
-                        display: 'flex', alignItems: 'center', gap: 10,
-                    }}
-                >
-                    <AlertCircle size={16} color={COLORS.amber} />
-                    Complete your first step to appear on the leaderboard.
-                </motion.div>
-            )}
-
-            {/* ─── PODIUM ─── */}
-            {racers.length >= 2 && (
-                <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.4, delay: 0.14 }}
-                    style={{ marginBottom: 20 }}
-                >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-                        <Medal size={15} color={COLORS.amber} />
-                        <span style={{ fontSize: 13, fontWeight: 700, color: COLORS.text }}>Top Performers</span>
-                        <div style={{ flex: 1, height: 1, background: COLORS.border }} />
-                    </div>
-
-                    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(racers.length, 3)}, 1fr)`, gap: 12 }}>
-                        {racers.slice(0, 3).map((r, i) => {
-                            const pos = i + 1;
-                            const isYou = r.rollNumber === user?.rollNumber;
-                            const tier = getTier(r.scorePercent);
-                            const medalColors = ['#d97706', '#6b7280', '#b45309'];
-                            const medals = ['🥇', '🥈', '🥉'];
-                            const avatarColor = AVATAR_PALETTE[i % AVATAR_PALETTE.length];
-                            const heightMap = ['180px', '155px', '135px'];
+                    )}
+                    <AnimatePresence>
+                        {restOfStudents.map((racer, idx) => {
+                            const isSelected = selectedStudentId === racer.rollNumber;
+                            const avatarColor = AVATAR_PALETTE[(idx + 3) % AVATAR_PALETTE.length];
 
                             return (
                                 <motion.div
-                                    key={r.rollNumber || i}
-                                    initial={{ opacity: 0, y: 20 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: 0.18 + i * 0.08, ease: [0.22, 1, 0.36, 1] }}
-                                    whileHover={{ y: -4, boxShadow: `0 12px 32px -8px ${pos === 1 ? 'rgba(217,119,6,0.2)' : 'rgba(0,0,0,0.1)'}` }}
+                                    key={racer.rollNumber}
+                                    layout
+                                    initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
+                                    onClick={() => setSelectedStudentId(racer.rollNumber)}
                                     style={{
-                                        background: '#fff',
-                                        border: `1.5px solid ${isYou ? COLORS.brandBorder : pos === 1 ? COLORS.amberBorder : COLORS.border}`,
-                                        borderRadius: 18, padding: '22px 16px',
-                                        textAlign: 'center', display: 'flex', flexDirection: 'column',
-                                        alignItems: 'center', gap: 8,
-                                        boxShadow: pos === 1
-                                            ? '0 4px 24px rgba(217,119,6,0.1), 0 1px 3px rgba(0,0,0,0.04)'
-                                            : '0 1px 3px rgba(0,0,0,0.04)',
-                                        transition: 'all 0.2s', cursor: 'default',
-                                        position: 'relative', overflow: 'hidden',
-                                        minHeight: heightMap[i],
-                                        justifyContent: 'center',
+                                        display: 'flex', alignItems: 'center', gap: 12, padding: '13px 16px',
+                                        background: isSelected ? '#eff6ff' : 'transparent',
+                                        borderBottom: `1px solid ${COLORS.border}`,
+                                        borderLeft: `4px solid ${isSelected ? COLORS.brand : 'transparent'}`,
+                                        cursor: 'pointer', transition: 'background 0.2s',
                                     }}
+                                    whileHover={{ background: isSelected ? COLORS.brandLight : '#f8fafc' }}
                                 >
-                                    {/* Top accent line */}
-                                    <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: pos === 1 ? `linear-gradient(90deg, #fbbf24, #d97706, #fbbf24)` : isYou ? `linear-gradient(90deg, #93c5fd, #2563eb, #93c5fd)` : `linear-gradient(90deg, transparent, #e5e7eb, transparent)`, borderRadius: '18px 18px 0 0' }} />
-
-                                    {isYou && (
-                                        <div style={{ position: 'absolute', top: 8, right: 10, background: COLORS.brand, color: '#fff', fontSize: 8, fontWeight: 700, padding: '2px 7px', borderRadius: 6, letterSpacing: '0.04em' }}>YOU</div>
-                                    )}
-
-                                    <div style={{ fontSize: 28, lineHeight: 1 }}>{medals[i]}</div>
-
+                                    <div style={{ fontSize: 12, fontWeight: 800, color: COLORS.textFaint, width: 24, flexShrink: 0 }}>
+                                        #{idx + 4}
+                                    </div>
                                     <div style={{
-                                        width: 46, height: 46, borderRadius: '50%',
-                                        background: avatarColor, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        fontSize: 15, fontWeight: 800, color: '#fff',
-                                        boxShadow: `0 4px 10px ${avatarColor}44`,
+                                        width: 34, height: 34, borderRadius: '50%', flexShrink: 0,
+                                        background: avatarColor, display: 'flex', alignItems: 'center',
+                                        justifyContent: 'center', fontSize: 12, fontWeight: 800,
+                                        color: '#fff', boxShadow: `0 3px 8px ${avatarColor}44`,
                                     }}>
-                                        {getInitials(r.name)}
+                                        {getInitials(racer.name)}
                                     </div>
-
-                                    <div>
-                                        <div style={{ fontSize: 14, fontWeight: 700, color: COLORS.text }}>{r.name?.split(' ')[0] ?? '—'}</div>
-                                        <div style={{ fontSize: 10, color: COLORS.textFaint, fontFamily: 'monospace', marginTop: 2 }}>{r.rollNumber}</div>
+                                    <div style={{ flex: 1, overflow: 'hidden' }}>
+                                        <div style={{
+                                            fontSize: 14, fontWeight: 700,
+                                            color: isSelected ? COLORS.brand : COLORS.text,
+                                            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                                        }}>
+                                            {racer.name?.split(' ')[0]}
+                                        </div>
                                     </div>
-
-                                    <div style={{ fontSize: pos === 1 ? 26 : 22, fontWeight: 900, color: medalColors[i], lineHeight: 1 }}>{r.scorePercent}%</div>
-                                    <div style={{ fontSize: 11, color: COLORS.textFaint }}>{r.netScore} pts</div>
-
-                                    <div style={{ width: '80%' }}>
-                                        <ProgressBar pct={r.scorePercent} color={medalColors[i]} height={5} />
-                                    </div>
-
-                                    <div style={{
-                                        display: 'inline-flex', alignItems: 'center', gap: 4,
-                                        background: tier.bg, color: tier.color, border: `1px solid ${tier.border}`,
-                                        borderRadius: 20, padding: '3px 10px', fontSize: 10, fontWeight: 700,
-                                    }}>
-                                        {tier.icon} {tier.label}
+                                    <div style={{ fontSize: 14, fontWeight: 900, color: COLORS.text, flexShrink: 0 }}>
+                                        {racer.scorePercent}%
                                     </div>
                                 </motion.div>
                             );
                         })}
-                    </div>
-                </motion.div>
-            )}
-
-            {/* ─── FULL TABLE ─── */}
-            <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-                    <TrendingUp size={15} color={COLORS.brand} />
-                    <span style={{ fontSize: 13, fontWeight: 700, color: COLORS.text }}>All Rankings</span>
-                    <div style={{ flex: 1, height: 1, background: COLORS.border }} />
-                    <span style={{ fontSize: 12, color: COLORS.textFaint, fontWeight: 500 }}>{racers.length} students</span>
+                    </AnimatePresence>
                 </div>
+            </div>
 
-                {/* Column headings */}
-                <div style={{
-                    display: 'grid', gridTemplateColumns: '50px 1fr 80px 80px 90px 90px 110px',
-                    alignItems: 'center', padding: '8px 18px',
-                    background: '#f9fafb', border: `1px solid ${COLORS.border}`,
-                    borderRadius: '10px 10px 0 0',
-                }}>
-                    {['Rank', 'Student', 'Steps', 'Score', 'Points', 'Tier', 'Progress'].map(h => (
-                        <div key={h} style={{ fontSize: 11, fontWeight: 700, color: COLORS.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em' }}>{h}</div>
-                    ))}
-                </div>
+            {/* ═══ RIGHT PANEL — Full Screen 3D Viewer ═══ */}
+            <div style={{
+                flex: 1,
+                position: 'relative',
+                overflow: 'hidden',
+                background: 'transparent',
+            }}>
+                {/* ── Name subtitle + Rank title at top center ── */}
+                {selectedStudentData && (
+                    <div style={{
+                        position: 'absolute', top: 0, left: 0, right: 0,
+                        textAlign: 'center', zIndex: 20, pointerEvents: 'none',
+                        paddingTop: 20,
+                    }}>
+                        <AnimatePresence mode="wait">
+                            <motion.p
+                                key={`sub-${selectedStudentData.rollNumber}`}
+                                initial={{ opacity: 0, y: -12 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -8 }}
+                                transition={{ duration: 0.35 }}
+                                style={{
+                                    margin: 0,
+                                    fontSize: 16,
+                                    fontWeight: 600,
+                                    color: '#374151',
+                                    letterSpacing: '-0.01em',
+                                    lineHeight: 1,
+                                    textShadow: '0 1px 8px rgba(255,255,255,0.9), 0 0 20px rgba(255,255,255,0.6)',
+                                }}
+                            >
+                                {selectedStudentData.name ?? '—'}
+                            </motion.p>
+                        </AnimatePresence>
 
-                {racers.length === 0 ? (
-                    <div style={{ padding: '48px 24px', textAlign: 'center', color: COLORS.textFaint, fontSize: 14, border: `1px solid ${COLORS.border}`, borderTop: 'none', borderRadius: '0 0 12px 12px', background: '#fafafa' }}>
-                        <div style={{ fontSize: 32, marginBottom: 10 }}>🏁</div>
-                        No students yet. Be the first to submit!
-                    </div>
-                ) : (
-                    <div style={{ border: `1px solid ${COLORS.border}`, borderTop: 'none', borderRadius: '0 0 14px 14px', overflow: 'hidden' }}>
-                        <AnimatePresence>
-                            {racers.map((racer, idx) => {
-                                const isYou = racer.rollNumber === user?.rollNumber;
-                                const pos = idx + 1;
-                                const tier = getTier(racer.scorePercent);
-                                const avatarColor = AVATAR_PALETTE[idx % AVATAR_PALETTE.length];
-                                const posEmoji = pos === 1 ? '🥇' : pos === 2 ? '🥈' : pos === 3 ? '🥉' : null;
-
-                                return (
-                                    <motion.div
-                                        key={racer.rollNumber || racer._id || idx}
-                                        layout
-                                        initial={{ opacity: 0 }}
-                                        animate={{ opacity: 1 }}
-                                        exit={{ opacity: 0 }}
-                                        transition={{ delay: Math.min(idx * 0.025, 0.4) }}
-                                        style={{
-                                            display: 'grid', gridTemplateColumns: '50px 1fr 80px 80px 90px 90px 110px',
-                                            alignItems: 'center',
-                                            padding: '13px 18px',
-                                            background: isYou ? COLORS.brandLight : idx % 2 === 0 ? '#ffffff' : '#fafafa',
-                                            borderBottom: idx < racers.length - 1 ? `1px solid ${COLORS.border}` : 'none',
-                                            cursor: 'default',
-                                            transition: 'background 0.15s',
-                                            position: 'relative',
-                                        }}
-                                        onMouseEnter={e => { if (!isYou) e.currentTarget.style.background = '#f9fafb'; }}
-                                        onMouseLeave={e => { e.currentTarget.style.background = isYou ? COLORS.brandLight : idx % 2 === 0 ? '#ffffff' : '#fafafa'; }}
-                                    >
-                                        {/* You indicator stripe */}
-                                        {isYou && <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, background: COLORS.brand }} />}
-
-                                        {/* Rank */}
-                                        <div style={{ textAlign: 'center', fontSize: pos <= 3 ? 18 : 13, fontWeight: 700, color: pos <= 3 ? (pos === 1 ? COLORS.amber : COLORS.gray) : COLORS.textFaint }}>
-                                            {posEmoji ?? `#${pos}`}
-                                        </div>
-
-                                        {/* Student */}
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-                                            <div style={{
-                                                width: 34, height: 34, borderRadius: '50%', flexShrink: 0,
-                                                background: avatarColor, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                fontSize: 12, fontWeight: 700, color: '#fff',
-                                            }}>
-                                                {getInitials(racer.name)}
-                                            </div>
-                                            <div style={{ overflow: 'hidden' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'nowrap' }}>
-                                                    <span style={{ fontSize: 13, fontWeight: 600, color: isYou ? COLORS.brand : COLORS.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                                        {racer.name?.split(' ')[0] ?? '—'}
-                                                    </span>
-                                                    {isYou && <span style={{ background: COLORS.brand, color: '#fff', fontSize: 8, fontWeight: 700, padding: '2px 6px', borderRadius: 4, letterSpacing: '0.04em', flexShrink: 0 }}>YOU</span>}
-                                                    {racer.isCompleted && <CheckCircle2 size={12} color={COLORS.green} style={{ flexShrink: 0 }} />}
-                                                </div>
-                                                <div style={{ fontSize: 10, color: COLORS.textFaint, fontFamily: 'monospace', marginTop: 1 }}>{racer.rollNumber}</div>
-                                            </div>
-                                        </div>
-
-                                        {/* Steps */}
-                                        <div>
-                                            <div style={{ fontSize: 13, fontWeight: 700, color: COLORS.text }}>{racer.stepsCompleted}/{TOTAL_STEPS}</div>
-                                            <StepDots stepsCompleted={racer.stepsCompleted} color={tier.color} />
-                                        </div>
-
-                                        {/* Score % */}
-                                        <div style={{ fontSize: 14, fontWeight: 800, color: tier.color }}>{racer.scorePercent}%</div>
-
-                                        {/* Points */}
-                                        <div>
-                                            <div style={{ fontSize: 13, fontWeight: 700, color: COLORS.text }}>{racer.netScore} pts</div>
-                                            {racer.rejectionCount > 0 && (
-                                                <div style={{ fontSize: 10, color: COLORS.red, fontWeight: 600 }}>-{racer.rejectionCount * 25} pen.</div>
-                                            )}
-                                        </div>
-
-                                        {/* Tier badge */}
-                                        <div style={{
-                                            display: 'inline-flex', alignItems: 'center', gap: 4, justifyContent: 'center',
-                                            background: tier.bg, color: tier.color, border: `1px solid ${tier.border}`,
-                                            borderRadius: 20, padding: '4px 10px',
-                                            fontSize: 10, fontWeight: 700, whiteSpace: 'nowrap',
-                                        }}>
-                                            {tier.icon} {tier.label}
-                                        </div>
-
-                                        {/* Progress bar */}
-                                        <div style={{ paddingRight: 8 }}>
-                                            <ProgressBar pct={racer.scorePercent} color={tier.color} height={5} />
-                                        </div>
-                                    </motion.div>
-                                );
-                            })}
+                        <AnimatePresence mode="wait">
+                            <motion.h2
+                                key={`rank-${selectedStudentData.rollNumber}`}
+                                initial={{ opacity: 0, scale: 0.85 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                exit={{ opacity: 0, scale: 0.9 }}
+                                transition={{ duration: 0.35, delay: 0.06 }}
+                                style={{
+                                    margin: '6px 0 0',
+                                    fontSize: 22,
+                                    fontWeight: 900,
+                                    color: COLORS.brand,
+                                    letterSpacing: '-0.025em',
+                                    lineHeight: 1,
+                                    textShadow: '0 2px 12px rgba(255,255,255,0.95), 0 0 30px rgba(37,99,235,0.15)',
+                                }}
+                            >
+                                Rank #{selectedStudentRank}
+                            </motion.h2>
                         </AnimatePresence>
                     </div>
                 )}
-            </div>
 
-            {/* Footer */}
-            <div style={{ marginTop: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 12, color: COLORS.textFaint }}>
-                <RefreshCw size={11} />
-                Auto-refreshes every 15 seconds · {racers.length} students tracked
+                {/* ── Left side buttons: Score (top) + Roll No (bottom) ── */}
+                {selectedStudentData && (
+                    <div style={{
+                        position: 'absolute',
+                        left: 28,
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        zIndex: 20,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 14,
+                        alignItems: 'flex-start',
+                    }}>
+                        <AnimatedStatButton
+                            label="Score"
+                            value={`${selectedStudentData.scorePercent}%`}
+                            color={COLORS.brand}
+                            icon={<TrendingUp size={15} color={COLORS.textMuted} />}
+                        />
+                        <AnimatedStatButton
+                            label="Points"
+                            value={selectedStudentData.netScore}
+                            color={COLORS.amber}
+                            icon={<Award size={15} color={COLORS.textMuted} />}
+                        />
+                        <AnimatedStatButton
+                            label="Roll No"
+                            value={selectedStudentData.rollNumber}
+                            color={COLORS.indigo}
+                            icon={<Hash size={15} color={COLORS.textMuted} />}
+                        />
+                    </div>
+                )}
+
+                {/* ── Right side buttons: Steps + Flags ── */}
+                {selectedStudentData && (
+                    <div style={{
+                        position: 'absolute',
+                        right: 28,
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        zIndex: 20,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 14,
+                        alignItems: 'flex-end',
+                    }}>
+                        <AnimatedStatButton
+                            label="Steps"
+                            value={`${selectedStudentData.stepsCompleted}/${TOTAL_STEPS}`}
+                            color={COLORS.green}
+                            icon={<Zap size={15} color={COLORS.textMuted} />}
+                        />
+                        <AnimatedStatButton
+                            label="Flags"
+                            value={selectedStudentData.rejectionCount}
+                            color={COLORS.red}
+                            icon={<AlertCircle size={15} color={COLORS.textMuted} />}
+                        />
+                    </div>
+                )}
+
+                {/* ── Full Screen Canvas ── */}
+                <div style={{ position: 'absolute', inset: 0, top: 80, zIndex: 5 }}>
+                    <Canvas camera={{ position: [0, 1, 6], fov: 45 }}>
+                        <ambientLight intensity={0.7} />
+                        <spotLight position={[10, 10, 10]} angle={0.2} penumbra={1} intensity={1.8} castShadow />
+                        <spotLight position={[-10, 10, -10]} angle={0.2} penumbra={1} intensity={0.5} />
+                        <Environment preset="city" />
+                        <Suspense fallback={null}>
+                            <StudentModel />
+                            <ContactShadows resolution={1024} scale={20} blur={2.5} opacity={0.5} far={10} color="#000000" />
+                        </Suspense>
+                        <OrbitControls
+                            enableZoom={false}
+                            enablePan={false}
+                            autoRotate
+                            autoRotateSpeed={1.5}
+                            maxPolarAngle={Math.PI / 2 + 0.1}
+                            minPolarAngle={Math.PI / 3}
+                        />
+                    </Canvas>
+                </div>
             </div>
 
             <style>{`
-                @keyframes liveDot    { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(0.6)} }
-                @keyframes spinAnim   { to { transform:rotate(360deg); } }
                 @keyframes skeletonPulse { 0%{opacity:0.5} 100%{opacity:0.9} }
+                @keyframes floatRacer {
+                    0% { transform: translateY(0px); }
+                    50% { transform: translateY(-8px); }
+                    100% { transform: translateY(0px); }
+                }
+                ::-webkit-scrollbar { width: 5px; }
+                ::-webkit-scrollbar-track { background: transparent; }
+                ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+                ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
             `}</style>
         </div>
     );
