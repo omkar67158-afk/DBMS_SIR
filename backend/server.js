@@ -9,6 +9,7 @@ const jwt = require('jsonwebtoken');
 const User = require('./models/User');
 const Tesseract = require('tesseract.js');
 const Groq = require('groq-sdk');
+const { generatePHash, checkDuplicate } = require('./phashUtils');
 
 // ── Rate Limit Rotation System ──
 let groqRequestCount = 0;
@@ -90,6 +91,36 @@ if (process.env.REDIS_URL) {
     if (!user) return;
 
     try {
+      // ── pHash Duplicate Detection (runs BEFORE OCR to save API calls) ──
+      let newPhash = null;
+      try {
+        newPhash = await generatePHash(imagePath);
+
+        // Collect all pHashes already stored for THIS specific step across ALL users
+        const usersWithStep = await User.find(
+          { 'submissions.stepId': stepId },
+          { 'submissions.$': 1 }
+        );
+        const storedHashes = usersWithStep
+          .flatMap(u => u.submissions)
+          .filter(s => s.stepId === stepId && s.phash)
+          .map(s => s.phash);
+
+        const { isDuplicate, reason } = checkDuplicate(newPhash, storedHashes);
+        if (isDuplicate) {
+          user.ocrStatus = 'REJECTED';
+          user.ocrFeedback = `❌ ${reason}. Your screenshot matches one already submitted for this step.`;
+          user.rejectionCount = (user.rejectionCount || 0) + 1;
+          await user.save();
+          if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath);
+          return;
+        }
+      } catch (hashErr) {
+        // Non-fatal: if pHash generation fails, log and continue with OCR
+        console.warn('pHash generation failed, skipping duplicate check:', hashErr.message);
+      }
+
+      // ── OCR Extraction ──
       const { data: { text: extractedText } } = await scheduler.addJob('recognize', imagePath);
       const minLength = user.currentStep === 7 ? 3 : 5;
       if (!extractedText || extractedText.trim().length < minLength) {
@@ -134,7 +165,7 @@ if (process.env.REDIS_URL) {
       const imgBuffer = fs.existsSync(imagePath) ? fs.readFileSync(imagePath) : null;
       const base64Image = imgBuffer ? `data:${mimeType || 'image/jpeg'};base64,${imgBuffer.toString('base64')}` : null;
 
-      user.submissions.push({ stepId: user.currentStep, imageData: base64Image });
+      user.submissions.push({ stepId: user.currentStep, imageData: base64Image, phash: newPhash || null });
       user.currentStep += 1;
       if (user.currentStep > 8 && !user.isCompleted) {
         user.isCompleted = true;

@@ -15,7 +15,8 @@ const userSchema = new mongoose.Schema({
   completedAt: { type: Date, default: null },
   submissions: [{
     stepId: Number,
-    imageData: String, // Base64 string of the uploaded screenshot
+    imageData: String,  // Base64 string of the uploaded screenshot
+    phash: String,      // Perceptual hash (pHash) for duplicate detection
     submittedAt: { type: Date, default: Date.now }
   }],
   rejectionCount: { type: Number, default: 0 }
