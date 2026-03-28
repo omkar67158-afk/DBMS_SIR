@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Suspense, lazy } from 'react';
 import Login from './components/Login';
 import StepWizard from './components/StepWizard';
 import RollNumberEntry from './components/RollNumberEntry';
@@ -10,9 +10,16 @@ import { LogOut, Zap, Trophy, BookOpen, CheckCircle2, Lock, ChevronRight } from 
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import './index.css';
-import untitledData from '../Untitled file.json';
-import LottieLib from 'lottie-react';
-const Lottie = LottieLib?.default ?? LottieLib;
+
+// ── Lazy load the heavy 564KB Lottie payload & engine completely off the main thread ──
+const AsyncLottie = lazy(async () => {
+    const animationData = await import('../Untitled file.json');
+    const LottieLib = await import('lottie-react');
+    const Lottie = LottieLib.default ?? LottieLib;
+    return {
+        default: (props) => <Lottie animationData={animationData.default} {...props} />
+    };
+});
 
 function App() {
   const [user, setUser] = useState(null);
@@ -534,13 +541,14 @@ function App() {
                     style={{ flexShrink: 0, borderLeft: 'none', padding: 0, display: 'flex', justifyContent: 'flex-end', overflow: 'hidden' }}
                 >
                     <div style={{ width: '450px', height: '100%' }}>
-                      <Lottie
-                          animationData={untitledData}
-                          loop
-                          autoplay
-                          style={{ width: '100%', height: '100%' }}
-                          rendererSettings={{ preserveAspectRatio: 'xMidYMid meet' }}
-                      />
+                      <Suspense fallback={null}>
+                        <AsyncLottie
+                            loop
+                            autoplay
+                            style={{ width: '100%', height: '100%' }}
+                            rendererSettings={{ preserveAspectRatio: 'xMidYMid meet' }}
+                        />
+                      </Suspense>
                     </div>
                 </motion.div>
               )}

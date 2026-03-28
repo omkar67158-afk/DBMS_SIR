@@ -82,11 +82,17 @@ function checkDuplicate(newHash, storedHashes) {
     const dist = hammingDistance(newHash, stored);
 
     if (dist <= THRESHOLD_EXACT) {
-      return { isDuplicate: true, reason: 'Duplicate submission' };
+      return {
+        isDuplicate: true,
+        reason: 'Bhai, yahi screenshot pehle bhi submit ho chuki hai! 😂 Naya kuch karo, copy-paste se kaam nahi chalega.'
+      };
     }
 
     if (dist <= THRESHOLD_SIMILAR) {
-      return { isDuplicate: true, reason: 'Similar image detected (possible cheating)' };
+      return {
+        isDuplicate: true,
+        reason: 'Arre bhai! Screenshot thoda ghuma ke bhej diya? 🤣 Hum jaanate hain, pHash ne pakad liya. Original kaam karo!'
+      };
     }
   }
 
