@@ -112,7 +112,21 @@ if (process.env.REDIS_URL) {
         response_format: { type: "json_object" }
       });
 
-      const aiResult = JSON.parse(completion.choices[0].message.content);
+      // Safe JSON parse — Groq occasionally returns markdown-fenced JSON
+      let aiResult;
+      try {
+        const raw = completion.choices[0].message.content.trim().replace(/^```json|```$/g, '').trim();
+        aiResult = JSON.parse(raw);
+      } catch (parseErr) {
+        console.error("Groq JSON parse error:", parseErr, completion.choices[0].message.content);
+        // Treat an unparseable response as a transient error — don't penalise the student
+        user.ocrStatus = 'REJECTED';
+        user.ocrFeedback = "Verification service returned an unexpected response. Please try submitting again.";
+        await user.save();
+        if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath);
+        return;
+      }
+
       if (aiResult.status !== "COMPLETED") {
         user.ocrStatus = 'REJECTED';
         user.ocrFeedback = `AI Rejected: ${aiResult.reason}`;
@@ -141,9 +155,32 @@ if (process.env.REDIS_URL) {
 
     } catch (error) {
       console.error("Worker OCR Error:", error);
+
+      // Provide specific feedback for known error types
+      let feedback = "Internal OCR Processing Error. Please try again.";
+
+      if (error?.status === 429 || error?.message?.includes('rate limit') || error?.message?.includes('Rate limit')) {
+        feedback = "Our AI verification service is temporarily busy (rate limit). Please wait 30 seconds and try again.";
+      } else if (error?.message?.includes('ENOENT') || error?.message?.includes('no such file')) {
+        feedback = "Screenshot file was lost during processing. Please re-upload and try again.";
+      } else if (error?.message?.includes('timeout') || error?.message?.includes('ETIMEDOUT')) {
+        feedback = "The OCR request timed out. Please try again with a smaller or clearer screenshot.";
+      }
+
       user.ocrStatus = 'REJECTED';
-      user.ocrFeedback = "Internal OCR Processing Error. Please try again.";
-      user.rejectionCount = (user.rejectionCount || 0) + 1;
+      user.ocrFeedback = feedback;
+      // Only increment rejection count for actual student errors, not server-side transient failures
+      const isTransient = error?.status === 429 || error?.message?.includes('timeout') || error?.message?.includes('ETIMEDOUT');
+      if (!isTransient) {
+        user.rejectionCount = (user.rejectionCount || 0) + 1;
+      }
+
+      // Reset Tesseract worker on crash so the next job gets a fresh instance
+      if (tesseractWorker) {
+        try { await tesseractWorker.terminate(); } catch (_) {}
+        tesseractWorker = null;
+      }
+
       await user.save();
       if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath);
     }
