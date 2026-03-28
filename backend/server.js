@@ -1,6 +1,4 @@
-const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '.env') });
-console.log("API KEY:", process.env.GROQ_API_KEY);
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
@@ -68,47 +66,30 @@ if (process.env.REDIS_URL) {
 
   // ── Reusable Tesseract worker — created ONCE, reused for every job ──
   // Cold-starting Tesseract per job adds ~5-8s. This drops it to ~1-2s.
-  let tesseractWorkerPromise = null;
+  let tesseractWorker = null;
   const getTesseractWorker = async () => {
-    if (!tesseractWorkerPromise) {
-      tesseractWorkerPromise = Tesseract.createWorker('eng');
+    if (!tesseractWorker) {
+      tesseractWorker = await Tesseract.createWorker('eng');
     }
-    return tesseractWorkerPromise;
+    return tesseractWorker;
   };
 
   // ── Background Worker — concurrency:5 means 5 jobs run in parallel ──
   new Worker('ocrQueue', async job => {
-    const { imageData, userId, stepId, mimeType } = job.data;
+    const { imagePath, userId, stepId, mimeType } = job.data;
     const user = await User.findById(userId);
     if (!user) return;
 
     try {
-      if (!imageData || !imageData.includes('base64,')) {
-        throw new Error(`Invalid image data format from queue payload.`);
-      }
-      
-      const imageBuffer = Buffer.from(imageData.split(',')[1], 'base64');
-      
-      let extractedText = '';
-      try {
-        const tw = await getTesseractWorker();
-        const { data: { text } } = await tw.recognize(imageBuffer);
-        extractedText = text;
-      } catch (ocrFailure) {
-        console.error("Tesseract Engine Error:", ocrFailure);
-        user.ocrStatus = 'REJECTED';
-        user.ocrFeedback = "Image text could not be extracted due to processing engine timeout or failure. Please try uploading again.";
-        user.rejectionCount = (user.rejectionCount || 0) + 1;
-        await user.save();
-        return;
-      }
-
+      const tw = await getTesseractWorker();
+      const { data: { text: extractedText } } = await tw.recognize(imagePath);
       const minLength = user.currentStep === 7 ? 3 : 5;
       if (!extractedText || extractedText.trim().length < minLength) {
         user.ocrStatus = 'REJECTED';
         user.ocrFeedback = "Could not read any clear text from the screenshot. Please upload a higher quality, legible image.";
         user.rejectionCount = (user.rejectionCount || 0) + 1;
         await user.save();
+        if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath);
         return;
       }
 
@@ -125,51 +106,25 @@ if (process.env.REDIS_URL) {
       const groqDynamicClient = groqClients[currentCycleIndex];
       groqRequestCount++;
 
-      let completion;
-      try {
-        completion = await groqDynamicClient.chat.completions.create({
-          messages: [{ role: "user", content: prompt }],
-          model: "llama-3.1-8b-instant",
-          response_format: { type: "json_object" }
-        });
-      } catch (groqError) {
-        console.error("Groq API Error:", groqError);
-        user.ocrStatus = 'REJECTED';
-        user.ocrFeedback = "AI Verification Service is currently busy (Rate Limit). Please wait 10 seconds and try again.";
-        user.rejectionCount = (user.rejectionCount || 0) + 1;
-        await user.save();
-        return;
-      }
+      const completion = await groqDynamicClient.chat.completions.create({
+        messages: [{ role: "user", content: prompt }],
+        model: "llama-3.1-8b-instant",
+        response_format: { type: "json_object" }
+      });
 
-      let aiResult;
-      try {
-        let content = completion.choices[0].message.content.trim();
-        // Clean markdown backticks if present
-        if (content.startsWith('```json')) {
-          content = content.replace(/^```json\s*/, '').replace(/\s*```$/, '');
-        } else if (content.startsWith('```')) {
-          content = content.replace(/^```\s*/, '').replace(/\s*```$/, '');
-        }
-        aiResult = JSON.parse(content);
-      } catch (parseError) {
-        console.error("Groq JSON Parse Error:", parseError, "Content:", completion.choices[0].message.content);
-        user.ocrStatus = 'REJECTED';
-        user.ocrFeedback = "AI returned an invalid response format. Please submit your image again.";
-        user.rejectionCount = (user.rejectionCount || 0) + 1;
-        await user.save();
-        return;
-      }
-
+      const aiResult = JSON.parse(completion.choices[0].message.content);
       if (aiResult.status !== "COMPLETED") {
         user.ocrStatus = 'REJECTED';
         user.ocrFeedback = `AI Rejected: ${aiResult.reason}`;
         user.rejectionCount = (user.rejectionCount || 0) + 1;
         await user.save();
+        if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath);
         return;
       }
 
       // Read image for MongoDB storage at the point of saving (not in queue payload)
-      const base64Image = imageData;
+      const imgBuffer = fs.existsSync(imagePath) ? fs.readFileSync(imagePath) : null;
+      const base64Image = imgBuffer ? `data:${mimeType || 'image/jpeg'};base64,${imgBuffer.toString('base64')}` : null;
 
       user.submissions.push({ stepId: user.currentStep, imageData: base64Image });
       user.currentStep += 1;
@@ -182,22 +137,15 @@ if (process.env.REDIS_URL) {
       user.ocrFeedback = null;
       await user.save();
 
+      if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath);
+
     } catch (error) {
-      console.error("Worker Catch-All Error:", error);
-      // Clean up failed internal process trace (like mongoose save errors that throw abruptly)
-      try {
-        user.ocrStatus = 'REJECTED';
-        user.ocrFeedback = "Internal Processing Error (Storage). Please try submitting a smaller file or try again.";
-        user.rejectionCount = (user.rejectionCount || 0) + 1;
-        
-        // Discard the last pushed submission if it exists and wasn't successfully saved yet
-        if (user.isModified('submissions')) {
-            user.submissions.pop();
-        }
-        await user.save();
-      } catch(e) {
-          console.error("Failed to recover user state:", e);
-      }
+      console.error("Worker OCR Error:", error);
+      user.ocrStatus = 'REJECTED';
+      user.ocrFeedback = "Internal OCR Processing Error. Please try again.";
+      user.rejectionCount = (user.rejectionCount || 0) + 1;
+      await user.save();
+      if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath);
     }
   }, { connection, concurrency: 5 });
 }
@@ -383,21 +331,13 @@ app.post('/api/progress/submit', requireAuth, upload.single('screenshot'), async
     user.ocrFeedback = null;
     await user.save();
 
-    // Convert file to Base64 to safely embed into the Redis job payload
-    // This entirely removes the risk of worker instances missing local files (ENOENT path mismatch)
-    const imgBuffer = fs.readFileSync(req.file.path);
-    const base64Image = `data:${req.file.mimetype || 'image/jpeg'};base64,${imgBuffer.toString('base64')}`;
-    
-    // Clean up purely temporal disk file
-    fs.unlinkSync(req.file.path);
-
-    // Add to Redis Queue with the complete base64 payload
+    // Add to Redis Queue with only essential metadata (no binary blob in Redis)
     await ocrQueue.add('processOCR', {
-      imageData: base64Image,
+      imagePath: req.file.path,
       userId: req.userId,
       stepId: parseInt(stepId),
       mimeType: req.file.mimetype
-    }, { removeOnComplete: true, removeOnFail: true });
+    });
 
     res.json({ message: "Processing started", status: "PROCESSING" });
 
