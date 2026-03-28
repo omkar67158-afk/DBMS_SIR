@@ -352,7 +352,7 @@ app.get('/api/leaderboard', requireAuth, async (req, res) => {
   try {
     const users = await User.find(
       { rollNumber: { $exists: true, $ne: null } },
-      'name officialName rollNumber currentStep isCompleted completedAt rejectionCount submissions createdAt'
+      'name officialName rollNumber currentStep isCompleted completedAt rejectionCount picture createdAt'
     );
 
     const MAX_SCORE = 800; // 8 steps × 100
@@ -365,24 +365,17 @@ app.get('/api/leaderboard', requireAuth, async (req, res) => {
         const rejections = u.rejectionCount || 0;
         const netScore = steps * 100 - rejections * 25;
         const scorePercent = Math.max(0, Math.round((netScore / MAX_SCORE) * 100));
-        
-        // Get first and last submission dates
-        const submissionDates = (u.submissions || []).map(s => new Date(s.submittedAt).getTime());
-        const firstSubmission = submissionDates.length > 0 ? new Date(Math.min(...submissionDates)) : u.createdAt;
-        const lastSubmission = submissionDates.length > 0 ? new Date(Math.max(...submissionDates)) : u.completedAt;
-        
         return {
           name: u.officialName || u.name,   // prefer real name entered at roll number setup
           rollNumber: u.rollNumber,
           currentStep: u.currentStep,
           isCompleted: u.isCompleted,
           completedAt: u.completedAt,
+          createdAt: u.createdAt,
+          picture: u.picture,
           rejectionCount: rejections,
           netScore,
-          scorePercent,
-          firstSubmission,
-          lastSubmission,
-          submissionCount: u.submissions?.length || 0
+          scorePercent
         };
       })
       .sort((a, b) => {

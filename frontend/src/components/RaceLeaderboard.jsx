@@ -1,8 +1,8 @@
 import { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronUp, ChevronDown, Minus, Calendar, Plus, Search, BarChart3, X } from 'lucide-react';
+import { ChevronUp, ChevronDown, Minus, Calendar, Plus } from 'lucide-react';
 import axios from 'axios';
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area } from 'recharts';
+import RaceChart from './RaceChart';
 
 const TOTAL_STEPS = 8;
 const MAX_SCORE = 800;
@@ -44,461 +44,6 @@ function getInitials(name) {
     return name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
 }
 
-/* ─ Full Screen Graph Component ─ */
-function FullScreenGraph({ racers, onClose }) {
-    const [chartType, setChartType] = useState('area'); // 'line', 'bar', 'area'
-    const [viewMode, setViewMode] = useState('comparison'); // 'comparison', 'timeline'
-    
-    // Prepare comparison data
-    const comparisonData = racers.map(racer => ({
-        name: racer.name.split(' ').slice(0, 2).join(' '),
-        rollNumber: racer.rollNumber,
-        score: racer.netScore,
-        steps: racer.stepsCompleted,
-        percentage: racer.scorePercent,
-    })).slice(0, 15); // Show top 15 for better visualization
-
-    // Prepare timeline data (progression through steps)
-    const timelineData = [];
-    const maxSteps = Math.max(...racers.map(r => r.stepsCompleted), 8);
-    
-    for (let step = 1; step <= maxSteps; step++) {
-        const stepData = { step: `Step ${step}` };
-        racers.forEach((racer, idx) => {
-            if (racer.stepsCompleted >= step) {
-                const key = racer.name.split(' ').slice(0, 2).join(' ');
-                stepData[key] = step * 100 - (racer.rejectionCount || 0) * 25;
-            }
-        });
-        timelineData.push(stepData);
-    }
-
-    return (
-        <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            style={{
-                position: 'fixed',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                background: 'rgba(0, 0, 0, 0.85)',
-                backdropFilter: 'blur(8px)',
-                zIndex: 99999,
-                display: 'flex',
-                flexDirection: 'column',
-                padding: '40px',
-            }}
-            onClick={onClose}
-        >
-            {/* Header */}
-            <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: 32,
-            }}>
-                <div>
-                    <h2 style={{
-                        fontSize: 32,
-                        fontWeight: 700,
-                        color: '#fff',
-                        margin: '0 0 8px 0',
-                    }}>
-                        Performance Analytics 📊
-                    </h2>
-                    <p style={{
-                        fontSize: 16,
-                        color: '#9ca3af',
-                        margin: 0,
-                    }}>
-                        Real-time comparison of all students
-                    </p>
-                </div>
-                <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                    {/* View Mode Selector */}
-                    <div style={{
-                        display: 'flex',
-                        gap: 4,
-                        padding: '6px',
-                        background: 'rgba(255, 255, 255, 0.1)',
-                        borderRadius: 10,
-                    }}>
-                        {[
-                            { id: 'comparison', label: '📊 Comparison', icon: '📊' },
-                            { id: 'timeline', label: '⏱️ Timeline', icon: '⏱️' }
-                        ].map(mode => (
-                            <button
-                                key={mode.id}
-                                onClick={(e) => { e.stopPropagation(); setViewMode(mode.id); }}
-                                style={{
-                                    padding: '8px 16px',
-                                    borderRadius: 8,
-                                    border: 'none',
-                                    cursor: 'pointer',
-                                    background: viewMode === mode.id ? '#fff' : 'transparent',
-                                    color: viewMode === mode.id ? '#2563eb' : '#fff',
-                                    fontSize: 13,
-                                    fontWeight: 600,
-                                    transition: 'all 0.2s',
-                                }}
-                            >
-                                {mode.label}
-                            </button>
-                        ))}
-                    </div>
-                    
-                    {/* Chart Type Selector */}
-                    <div style={{
-                        display: 'flex',
-                        gap: 4,
-                        padding: '6px',
-                        background: 'rgba(255, 255, 255, 0.1)',
-                        borderRadius: 10,
-                    }}>
-                        {['area', 'line', 'bar'].map(type => (
-                            <button
-                                key={type}
-                                onClick={(e) => { e.stopPropagation(); setChartType(type); }}
-                                style={{
-                                    padding: '8px 16px',
-                                    borderRadius: 8,
-                                    border: 'none',
-                                    cursor: 'pointer',
-                                    background: chartType === type ? '#fff' : 'transparent',
-                                    color: chartType === type ? '#2563eb' : '#fff',
-                                    fontSize: 13,
-                                    fontWeight: 600,
-                                    transition: 'all 0.2s',
-                                }}
-                            >
-                                {type.charAt(0).toUpperCase() + type.slice(1)}
-                            </button>
-                        ))}
-                    </div>
-                    <button
-                        onClick={onClose}
-                        style={{
-                            width: 40,
-                            height: 40,
-                            borderRadius: '50%',
-                            background: 'rgba(255, 255, 255, 0.1)',
-                            border: 'none',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            color: '#fff',
-                            transition: 'all 0.2s',
-                        }}
-                        onMouseEnter={(e) => e.target.style.background = 'rgba(255, 255, 255, 0.2)'}
-                        onMouseLeave={(e) => e.target.style.background = 'rgba(255, 255, 255, 0.1)'}
-                    >
-                        <X size={20} />
-                    </button>
-                </div>
-            </div>
-
-            {/* Charts */}
-            {viewMode === 'comparison' ? (
-                <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
-                    {/* Score Comparison Chart */}
-                    <div style={{
-                        background: '#fff',
-                        borderRadius: 16,
-                        padding: 24,
-                        boxShadow: '0 4px 24px rgba(0,0,0,0.15)',
-                    }}>
-                        <h3 style={{
-                            fontSize: 18,
-                            fontWeight: 700,
-                            color: '#111827',
-                            margin: '0 0 20px 0',
-                        }}>
-                            Net Score Comparison (Top 15)
-                        </h3>
-                        <ResponsiveContainer width="100%" height={350}>
-                            {chartType === 'area' ? (
-                                <AreaChart data={comparisonData}>
-                                    <defs>
-                                        <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="#2563eb" stopOpacity={0.8}/>
-                                            <stop offset="95%" stopColor="#2563eb" stopOpacity={0}/>
-                                        </linearGradient>
-                                    </defs>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                                    <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} tick={{ fontSize: 11 }} />
-                                    <YAxis stroke="#6b7280" />
-                                    <Tooltip 
-                                        contentStyle={{ 
-                                            borderRadius: 12, 
-                                            border: 'none',
-                                            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                                        }}
-                                    />
-                                    <Area 
-                                        type="monotone" 
-                                        dataKey="score" 
-                                        stroke="#2563eb" 
-                                        fillOpacity={1} 
-                                        fill="url(#colorScore)" 
-                                    />
-                                </AreaChart>
-                            ) : chartType === 'line' ? (
-                                <LineChart data={comparisonData}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                                    <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} tick={{ fontSize: 11 }} />
-                                    <YAxis stroke="#6b7280" />
-                                    <Tooltip 
-                                        contentStyle={{ 
-                                            borderRadius: 12, 
-                                            border: 'none',
-                                            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                                        }}
-                                    />
-                                    <Legend />
-                                    <Line 
-                                        type="monotone" 
-                                        dataKey="score" 
-                                        stroke="#2563eb" 
-                                        strokeWidth={3}
-                                        dot={{ fill: '#2563eb', strokeWidth: 2, r: 6 }}
-                                    />
-                                </LineChart>
-                            ) : (
-                                <BarChart data={comparisonData}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                                    <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} tick={{ fontSize: 11 }} />
-                                    <YAxis stroke="#6b7280" />
-                                    <Tooltip 
-                                        contentStyle={{ 
-                                            borderRadius: 12, 
-                                            border: 'none',
-                                            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                                        }}
-                                    />
-                                    <Legend />
-                                    <Bar 
-                                        dataKey="score" 
-                                        fill="#2563eb" 
-                                        radius={[8, 8, 0, 0]}
-                                    />
-                                </BarChart>
-                            )}
-                        </ResponsiveContainer>
-                    </div>
-
-                    {/* Steps Progress Chart */}
-                    <div style={{
-                        background: '#fff',
-                        borderRadius: 16,
-                        padding: 24,
-                        boxShadow: '0 4px 24px rgba(0,0,0,0.15)',
-                    }}>
-                        <h3 style={{
-                            fontSize: 18,
-                            fontWeight: 700,
-                            color: '#111827',
-                            margin: '0 0 20px 0',
-                        }}>
-                            Steps Completed Progress
-                        </h3>
-                        <ResponsiveContainer width="100%" height={350}>
-                            {chartType === 'area' ? (
-                                <AreaChart data={comparisonData}>
-                                    <defs>
-                                        <linearGradient id="colorSteps" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="#059669" stopOpacity={0.8}/>
-                                            <stop offset="95%" stopColor="#059669" stopOpacity={0}/>
-                                        </linearGradient>
-                                    </defs>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                                    <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} tick={{ fontSize: 11 }} />
-                                    <YAxis stroke="#6b7280" domain={[0, 8]} />
-                                    <Tooltip 
-                                        contentStyle={{ 
-                                            borderRadius: 12, 
-                                            border: 'none',
-                                            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                                        }}
-                                    />
-                                    <Area 
-                                        type="monotone" 
-                                        dataKey="steps" 
-                                        stroke="#059669" 
-                                        fillOpacity={1} 
-                                        fill="url(#colorSteps)" 
-                                    />
-                                </AreaChart>
-                            ) : chartType === 'line' ? (
-                                <LineChart data={comparisonData}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                                    <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} tick={{ fontSize: 11 }} />
-                                    <YAxis stroke="#6b7280" domain={[0, 8]} />
-                                    <Tooltip 
-                                        contentStyle={{ 
-                                            borderRadius: 12, 
-                                            border: 'none',
-                                            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                                        }}
-                                    />
-                                    <Legend />
-                                    <Line 
-                                        type="monotone" 
-                                        dataKey="steps" 
-                                        stroke="#059669" 
-                                        strokeWidth={3}
-                                        dot={{ fill: '#059669', strokeWidth: 2, r: 6 }}
-                                    />
-                                </LineChart>
-                            ) : (
-                                <BarChart data={comparisonData}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                                    <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} tick={{ fontSize: 11 }} />
-                                    <YAxis stroke="#6b7280" domain={[0, 8]} />
-                                    <Tooltip 
-                                        contentStyle={{ 
-                                            borderRadius: 12, 
-                                            border: 'none',
-                                            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                                        }}
-                                    />
-                                    <Legend />
-                                    <Bar 
-                                        dataKey="steps" 
-                                        fill="#059669" 
-                                        radius={[8, 8, 0, 0]}
-                                    />
-                                </BarChart>
-                            )}
-                        </ResponsiveContainer>
-                    </div>
-                </div>
-            ) : (
-                /* Timeline View - Step Progression */
-                <div style={{
-                    flex: 1,
-                    background: '#fff',
-                    borderRadius: 16,
-                    padding: 24,
-                    boxShadow: '0 4px 24px rgba(0,0,0,0.15)',
-                }}>
-                    <h3 style={{
-                        fontSize: 18,
-                        fontWeight: 700,
-                        color: '#111827',
-                        margin: '0 0 20px 0',
-                    }}>
-                        Step-by-Step Progression Race 🏎️
-                    </h3>
-                    <ResponsiveContainer width="100%" height={500}>
-                        {chartType === 'area' ? (
-                            <AreaChart data={timelineData}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                                <XAxis dataKey="step" stroke="#6b7280" />
-                                <YAxis stroke="#6b7280" />
-                                <Tooltip 
-                                    contentStyle={{ 
-                                        borderRadius: 12, 
-                                        border: 'none',
-                                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                                    }}
-                                />
-                                <Legend />
-                                {Object.keys(timelineData[0] || {}).filter(key => key !== 'step').slice(0, 10).map((key, idx) => (
-                                    <Area
-                                        key={key}
-                                        type="monotone"
-                                        dataKey={key}
-                                        stroke={AVATAR_PALETTE[idx % AVATAR_PALETTE.length]}
-                                        fill={`${AVATAR_PALETTE[idx % AVATAR_PALETTE.length]}20`}
-                                        strokeWidth={2}
-                                    />
-                                ))}
-                            </AreaChart>
-                        ) : chartType === 'line' ? (
-                            <LineChart data={timelineData}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                                <XAxis dataKey="step" stroke="#6b7280" />
-                                <YAxis stroke="#6b7280" />
-                                <Tooltip 
-                                    contentStyle={{ 
-                                        borderRadius: 12, 
-                                        border: 'none',
-                                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                                    }}
-                                />
-                                <Legend />
-                                {Object.keys(timelineData[0] || {}).filter(key => key !== 'step').slice(0, 10).map((key, idx) => (
-                                    <Line
-                                        key={key}
-                                        type="monotone"
-                                        dataKey={key}
-                                        stroke={AVATAR_PALETTE[idx % AVATAR_PALETTE.length]}
-                                        strokeWidth={3}
-                                        dot={false}
-                                    />
-                                ))}
-                            </LineChart>
-                        ) : (
-                            <BarChart data={timelineData}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                                <XAxis dataKey="step" stroke="#6b7280" />
-                                <YAxis stroke="#6b7280" />
-                                <Tooltip 
-                                    contentStyle={{ 
-                                        borderRadius: 12, 
-                                        border: 'none',
-                                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                                    }}
-                                />
-                                <Legend />
-                                {Object.keys(timelineData[0] || {}).filter(key => key !== 'step').slice(0, 6).map((key, idx) => (
-                                    <Bar
-                                        key={key}
-                                        dataKey={key}
-                                        fill={AVATAR_PALETTE[idx % AVATAR_PALETTE.length]}
-                                    />
-                                ))}
-                            </BarChart>
-                        )}
-                    </ResponsiveContainer>
-                </div>
-            )}
-
-            {/* Footer Stats */}
-            <div style={{
-                display: 'flex',
-                gap: 24,
-                marginTop: 24,
-                padding: '20px 24px',
-                background: 'rgba(255, 255, 255, 0.05)',
-                borderRadius: 16,
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-            }}>
-                <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 13, color: '#9ca3af', marginBottom: 4 }}>Total Students</div>
-                    <div style={{ fontSize: 28, fontWeight: 700, color: '#fff' }}>{racers.length}</div>
-                </div>
-                <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 13, color: '#9ca3af', marginBottom: 4 }}>Average Score</div>
-                    <div style={{ fontSize: 28, fontWeight: 700, color: '#fff' }}>
-                        {Math.round(racers.reduce((sum, r) => sum + r.netScore, 0) / racers.length)}
-                    </div>
-                </div>
-                <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 13, color: '#9ca3af', marginBottom: 4 }}>Top Performer</div>
-                    <div style={{ fontSize: 20, fontWeight: 700, color: '#fbbf24' }}>
-                        {racers[0]?.name.split(' ').slice(0, 2).join(' ') || 'N/A'}
-                    </div>
-                </div>
-            </div>
-        </motion.div>
-    );
-}
-
 /* ─ Skeleton Row ─ */
 function SkeletonRow() {
     return (
@@ -521,15 +66,110 @@ function SkeletonRow() {
     );
 }
 
+// ─ Podium Component ─
+function PodiumStep({ racer, rank, height, color, isFirst }) {
+    if (!racer) return <div style={{ width: 140, height }} />;
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', width: 140 }}>
+            {/* Avatar & Name */}
+            <motion.div 
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.2 + (rank * 0.1) }}
+                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 16 }}
+            >
+                <div style={{
+                    width: isFirst ? 64 : 52,
+                    height: isFirst ? 64 : 52,
+                    borderRadius: '50%',
+                    background: AVATAR_PALETTE[(rank - 1) % AVATAR_PALETTE.length],
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#fff',
+                    fontSize: isFirst ? 20 : 16,
+                    fontWeight: 700,
+                    boxShadow: isFirst ? '0 10px 25px -5px rgba(217, 119, 6, 0.4)' : '0 4px 6px -1px rgba(0,0,0,0.1)',
+                    border: `4px solid ${COLORS.card}`,
+                    overflow: 'hidden',
+                    zIndex: 2,
+                }}>
+                    {racer.picture ? (
+                        <img src={racer.picture} alt={racer.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} referrerPolicy="no-referrer" />
+                    ) : (
+                        getInitials(racer.name)
+                    )}
+                </div>
+                <div style={{ 
+                    fontWeight: 800, 
+                    fontSize: isFirst ? 16 : 14, 
+                    color: COLORS.text, 
+                    marginTop: 8,
+                    textAlign: 'center',
+                    whiteSpace: 'nowrap',
+                    textOverflow: 'ellipsis',
+                    overflow: 'hidden',
+                    maxWidth: 130
+                }}>
+                    {racer.name.split(' ')[0]} {/* Show First Name */}
+                </div>
+            </motion.div>
+            
+            {/* 3D Box */}
+            <motion.div 
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: height, opacity: 1 }}
+                transition={{ type: 'spring', stiffness: 100, damping: 20, delay: rank * 0.1 }}
+                style={{ 
+                width: '100%', 
+                background: color,
+                border: `1px solid ${COLORS.border}`,
+                borderBottom: 'none',
+                borderTopRightRadius: 12,
+                borderTopLeftRadius: 12,
+                boxShadow: isFirst 
+                    ? '0 -10px 20px -5px rgba(0,0,0,0.05), inset 0 2px 10px rgba(255,255,255,1)' 
+                    : '0 -4px 6px -1px rgba(0,0,0,0.02), inset 0 2px 4px rgba(255,255,255,0.8)',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                paddingTop: 20,
+                position: 'relative',
+                overflow: 'hidden',
+            }}>
+                <div style={{ 
+                    fontSize: isFirst ? 40 : 28, 
+                    fontWeight: 900, 
+                    color: isFirst ? COLORS.amber : COLORS.textFaint,
+                    textShadow: isFirst ? '0 2px 4px rgba(217, 119, 6, 0.2)' : 'none',
+                }}>{rank}</div>
+                <div style={{ 
+                    fontSize: 13, 
+                    color: COLORS.textMuted, 
+                    fontWeight: 600,
+                    marginTop: 4 
+                }}>{racer.netScore} pts</div>
+
+                {isFirst && (
+                    <div style={{
+                        position: 'absolute',
+                        top: 0, left: 0, right: 0, height: '40%',
+                        background: 'linear-gradient(180deg, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0) 100%)',
+                        pointerEvents: 'none',
+                    }} />
+                )}
+            </motion.div>
+        </div>
+    );
+}
+
 export default function RaceLeaderboard({ user }) {
     const [racers, setRacers] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [searchQuery, setSearchQuery] = useState('');
-    const [showGraph, setShowGraph] = useState(false);
-    const [dateRange, setDateRange] = useState({
-        start: new Date('2025-01-01'),
-        end: new Date()
-    });
+    const [searchTerm, setSearchTerm] = useState('');
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
+    const [showChartRace, setShowChartRace] = useState(false);
     const intervalRef = useRef(null);
 
     const fetchLeaderboard = async () => {
@@ -538,25 +178,7 @@ export default function RaceLeaderboard({ user }) {
             const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/leaderboard`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
-            const data = (res.data || []).map(normalise);
-            
-            // Set date range based on actual submission data
-            if (data.length > 0) {
-                const allDates = data.flatMap(r => [
-                    r.firstSubmission ? new Date(r.firstSubmission).getTime() : null,
-                    r.lastSubmission ? new Date(r.lastSubmission).getTime() : null,
-                ].filter(Boolean));
-                
-                if (allDates.length > 0) {
-                    const minDate = Math.min(...allDates);
-                    const maxDate = Math.max(...allDates);
-                    setDateRange({
-                        start: new Date(minDate),
-                        end: new Date(maxDate),
-                    });
-                }
-            }
-            
+            const data = (res.data || []).map((r, idx) => ({ ...normalise(r), originalRank: idx + 1 }));
             setRacers(data);
             setLoading(false);
         } catch {
@@ -583,58 +205,68 @@ export default function RaceLeaderboard({ user }) {
         </div>
     );
 
-    // Filter racers based on search query
-    const filteredRacers = racers.filter(racer => {
-        const query = searchQuery.toLowerCase();
-        return (
-            racer.name.toLowerCase().includes(query) ||
-            racer.rollNumber.toLowerCase().includes(query)
-        );
+    // Filter racers
+    const filteredRacers = racers.filter(r => {
+        const matchesSearch = r.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                              (r.rollNumber && r.rollNumber.toLowerCase().includes(searchTerm.toLowerCase()));
+        
+        let matchesDate = true;
+        const racerDate = r.completedAt ? new Date(r.completedAt) : (r.createdAt ? new Date(r.createdAt) : new Date());
+        
+        if (startDate) {
+            const start = new Date(startDate);
+            start.setHours(0, 0, 0, 0);
+            if (racerDate < start) matchesDate = false;
+        }
+        if (endDate) {
+            const end = new Date(endDate);
+            end.setHours(23, 59, 59, 999);
+            if (racerDate > end) matchesDate = false;
+        }
+        return matchesSearch && matchesDate;
     });
 
-    // Filter by date range (assuming submissions have dates)
-    const dateFilteredRacers = filteredRacers.filter(racer => {
-        const racerDate = racer.completedAt ? new Date(racer.completedAt) : new Date();
-        return racerDate >= dateRange.start && racerDate <= dateRange.end;
-    });
-
-    const displayRacers = dateFilteredRacers.length > 0 ? dateFilteredRacers : filteredRacers;
+    if (showChartRace) {
+        return <RaceChart racers={filteredRacers} onClose={() => setShowChartRace(false)} />;
+    }
 
     return (
-        <>
-            <div style={{
-                display: 'flex',
-                flexDirection: 'column',
-                flex: 1,
-                height: '100%',
-                width: '100%',
-                background: COLORS.bg,
-                fontFamily: 'inherit',
-                padding: '24px',
-                overflow: 'auto',
-            }}>
+        <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            flex: 1,
+            height: '100%',
+            width: '100%',
+            background: COLORS.bg,
+            fontFamily: 'inherit',
+            padding: '24px',
+            overflow: 'auto',
+        }}>
             {/* Header */}
             <div style={{
                 display: 'flex',
                 justifyContent: 'space-between',
-                alignItems: 'center',
+                alignItems: 'flex-start',
                 marginBottom: 24,
             }}>
-                <h1 style={{
-                    fontSize: 24,
-                    fontWeight: 700,
-                    color: COLORS.text,
-                    margin: 0,
-                }}>
-                    Leaderboard
-                </h1>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <h1 style={{
+                        fontSize: 28,
+                        fontWeight: 800,
+                        color: COLORS.text,
+                        margin: 0,
+                        letterSpacing: '-0.02em',
+                    }}>
+                        Leaderboard
+                    </h1>
+                </div>
                 
                 <div style={{
                     display: 'flex',
                     gap: 12,
                     alignItems: 'center',
                 }}>
-                    {/* Search Box */}
+                    {/* Search Input */}
                     <div style={{
                         display: 'flex',
                         alignItems: 'center',
@@ -643,138 +275,26 @@ export default function RaceLeaderboard({ user }) {
                         background: COLORS.card,
                         borderRadius: 8,
                         border: `1px solid ${COLORS.border}`,
-                        minWidth: 250,
                     }}>
-                        <Search size={16} color={COLORS.textMuted} />
-                        <input
-                            type="text"
-                            placeholder="Search by name or roll number..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
+                        <input 
+                            type="text" 
+                            placeholder="Search students..." 
+                            value={searchTerm}
+                            onChange={e => setSearchTerm(e.target.value)}
                             style={{
                                 border: 'none',
                                 outline: 'none',
+                                background: 'transparent',
                                 fontSize: 14,
                                 color: COLORS.text,
-                                background: 'transparent',
-                                flex: 1,
+                                width: '180px',
                             }}
                         />
-                        {searchQuery && (
-                            <button
-                                onClick={() => setSearchQuery('')}
-                                style={{
-                                    background: 'none',
-                                    border: 'none',
-                                    cursor: 'pointer',
-                                    padding: 4,
-                                    color: COLORS.textMuted,
-                                }}
-                            >
-                                <X size={14} />
-                            </button>
-                        )}
                     </div>
-
-                    {/* Date Range */}
-                    <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 12,
-                        padding: '8px 16px',
-                        background: COLORS.card,
-                        borderRadius: 8,
-                        border: `1px solid ${COLORS.border}`,
-                        position: 'relative',
-                        cursor: 'pointer',
-                    }}>
-                        <Calendar size={16} color={COLORS.textMuted} />
-                        <div style={{
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: 4,
-                        }}>
-                            <div style={{
-                                fontSize: 11,
-                                fontWeight: 600,
-                                color: COLORS.textMuted,
-                                textTransform: 'uppercase',
-                            }}>
-                                From
-                            </div>
-                            <input
-                                type="date"
-                                value={dateRange.start.toISOString().split('T')[0]}
-                                onChange={(e) => setDateRange(prev => ({ ...prev, start: new Date(e.target.value) }))}
-                                style={{
-                                    border: 'none',
-                                    outline: 'none',
-                                    fontSize: 12,
-                                    color: COLORS.text,
-                                    background: 'transparent',
-                                    cursor: 'pointer',
-                                    fontWeight: 600,
-                                }}
-                            />
-                            <div style={{
-                                fontSize: 11,
-                                fontWeight: 600,
-                                color: COLORS.textMuted,
-                                textTransform: 'uppercase',
-                            }}>
-                                To
-                            </div>
-                            <input
-                                type="date"
-                                value={dateRange.end.toISOString().split('T')[0]}
-                                onChange={(e) => setDateRange(prev => ({ ...prev, end: new Date(e.target.value) }))}
-                                style={{
-                                    border: 'none',
-                                    outline: 'none',
-                                    fontSize: 12,
-                                    color: COLORS.text,
-                                    background: 'transparent',
-                                    cursor: 'pointer',
-                                    fontWeight: 600,
-                                }}
-                            />
-                        </div>
-                    </div>
-
-                    {/* View Graph Button */}
-                    <button
-                        onClick={() => setShowGraph(true)}
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 8,
-                            padding: '8px 16px',
-                            background: COLORS.brand,
-                            border: 'none',
-                            borderRadius: 8,
-                            cursor: 'pointer',
-                            color: '#fff',
-                            fontSize: 14,
-                            fontWeight: 600,
-                            transition: 'all 0.2s',
-                            boxShadow: '0 2px 8px rgba(37, 99, 235, 0.2)',
-                        }}
-                        onMouseEnter={(e) => {
-                            e.target.style.background = '#1d4ed8';
-                            e.target.style.transform = 'translateY(-1px)';
-                        }}
-                        onMouseLeave={(e) => {
-                            e.target.style.background = COLORS.brand;
-                            e.target.style.transform = 'translateY(0)';
-                        }}
-                    >
-                        <BarChart3 size={16} />
-                        View Analytics
-                    </button>
 
                     {/* Avatars */}
                     <div style={{ display: 'flex', alignItems: 'center' }}>
-                        {racers.slice(0, 3).map((racer, idx) => (
+                        {filteredRacers.slice(0, 3).map((racer, idx) => (
                             <div
                                 key={racer.rollNumber}
                                 style={{
@@ -791,12 +311,17 @@ export default function RaceLeaderboard({ user }) {
                                     marginLeft: idx > 0 ? -8 : 0,
                                     border: `2px solid ${COLORS.card}`,
                                     boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                                    overflow: 'hidden',
                                 }}
                             >
-                                {getInitials(racer.name)}
+                                {racer.picture ? (
+                                    <img src={racer.picture} alt={racer.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} referrerPolicy="no-referrer" />
+                                ) : (
+                                    getInitials(racer.name)
+                                )}
                             </div>
                         ))}
-                        {racers.length > 3 && (
+                        {filteredRacers.length > 3 && (
                             <div style={{
                                 width: 32,
                                 height: 32,
@@ -811,48 +336,63 @@ export default function RaceLeaderboard({ user }) {
                                 color: COLORS.textMuted,
                                 marginLeft: -8,
                             }}>
-                                +{racers.length - 3}
+                                +{filteredRacers.length - 3}
                             </div>
                         )}
                     </div>
 
-                    {/* Add Members Button */}
+                    {/* Show Chart Race Button (Rightmost) */}
                     <button style={{
                         display: 'flex',
                         alignItems: 'center',
+                        justifyContent: 'center',
                         gap: 8,
                         padding: '8px 16px',
-                        background: COLORS.brandLight,
-                        border: `1px solid ${COLORS.brand}`,
-                        borderRadius: 8,
+                        background: COLORS.card,
+                        border: `1px solid ${COLORS.border}`,
+                        borderRadius: 6,
                         cursor: 'pointer',
-                        color: COLORS.brand,
-                        fontSize: 14,
+                        color: COLORS.text,
+                        fontSize: 13,
                         fontWeight: 600,
+                        boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
                         transition: 'all 0.2s',
                     }}
-                    onMouseEnter={(e) => {
-                        e.target.style.background = COLORS.brand;
-                        e.target.style.color = '#fff';
-                    }}
-                    onMouseLeave={(e) => {
-                        e.target.style.background = COLORS.brandLight;
-                        e.target.style.color = COLORS.brand;
-                    }}
+                    onClick={() => setShowChartRace(true)}
+                    onMouseEnter={(e) => { e.target.style.background = '#f3f4f6'; }}
+                    onMouseLeave={(e) => { e.target.style.background = COLORS.card; }}
                     >
-                        <Plus size={16} />
-                        Add members
+                        <Plus size={14} />
+                        Graph
                     </button>
                 </div>
             </div>
+
+            {/* Top 3 Podium (Google-style Minimalist White) */}
+            {searchTerm === '' && startDate === '' && endDate === '' && racers.length >= 3 && (
+                <div style={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'flex-end',
+                    gap: 24,
+                    margin: '20px 0 40px 0',
+                }}>
+                    {/* Rank 2 */}
+                    <PodiumStep racer={racers[1]} rank={2} height={140} color={COLORS.bg} />
+                    {/* Rank 1 */}
+                    <PodiumStep racer={racers[0]} rank={1} height={180} color={COLORS.card} isFirst />
+                    {/* Rank 3 */}
+                    <PodiumStep racer={racers[2]} rank={3} height={110} color={COLORS.bg} />
+                </div>
+            )}
 
             {/* Table Container */}
             <div style={{
                 background: COLORS.card,
                 borderRadius: 12,
                 border: `1px solid ${COLORS.border}`,
-                overflow: 'hidden',
                 boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                position: 'relative',
             }}>
                 {/* Table Header */}
                 <div style={{
@@ -861,39 +401,33 @@ export default function RaceLeaderboard({ user }) {
                     padding: '14px 20px',
                     background: COLORS.bg,
                     borderBottom: `1px solid ${COLORS.border}`,
+                    borderTopLeftRadius: 12,
+                    borderTopRightRadius: 12,
                     fontSize: 13,
                     fontWeight: 600,
                     color: COLORS.textMuted,
                     textTransform: 'uppercase',
                     letterSpacing: '0.05em',
+                    position: 'sticky',
+                    top: -24, // Matches the 24px padding of the outer container
+                    zIndex: 20,
+                    boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', // Added a small shadow when sticky
                 }}>
-                    <div style={{ width: 80, display: 'flex', alignItems: 'center', gap: 4 }}>
-                        Positions
-                    </div>
-                    <div style={{ width: 200, display: 'flex', alignItems: 'center', gap: 4 }}>
-                        Name
-                    </div>
-                    <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', paddingRight: 24 }}>
-                        <div style={{ width: 100, textAlign: 'right' }}>Score</div>
-                    </div>
-                    <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', paddingRight: 24 }}>
-                        <div style={{ width: 100, textAlign: 'right' }}>Points</div>
-                    </div>
-                    <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', paddingRight: 24 }}>
-                        <div style={{ width: 100, textAlign: 'right' }}>Steps</div>
-                    </div>
-                    <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', paddingRight: 24 }}>
-                        <div style={{ width: 100, textAlign: 'right' }}>Flags</div>
-                    </div>
+                    <div style={{ width: 80 }}>Position</div>
+                    <div style={{ width: 220 }}>Name</div>
+                    <div style={{ flex: 1, textAlign: 'center' }}>Score</div>
+                    <div style={{ flex: 1, textAlign: 'center' }}>Points</div>
+                    <div style={{ flex: 1, textAlign: 'center' }}>Steps</div>
+                    <div style={{ flex: 1, textAlign: 'center' }}>Flags</div>
                     <div style={{ width: 40 }} />
                 </div>
 
                 {/* Table Body */}
                 <AnimatePresence>
-                    {displayRacers.map((racer, idx) => {
+                    {filteredRacers.map((racer, idx) => {
                         const avatarColor = AVATAR_PALETTE[idx % AVATAR_PALETTE.length];
-                        const prevRank = racer.prevRank || idx + 1;
-                        const rankChange = prevRank - (idx + 1);
+                        const rankChange = 0; // Keeping 0 for now as prevRank is omitted in current backend
+                        const displayRank = racer.originalRank || idx + 1;
                         
                         return (
                             <motion.div
@@ -918,56 +452,14 @@ export default function RaceLeaderboard({ user }) {
                                         fontSize: 14,
                                         fontWeight: 700,
                                         color: COLORS.text,
-                                        width: 24,
+                                        width: 28,
                                     }}>
-                                        #{idx + 1}
+                                        #{displayRank}
                                     </span>
-                                    {rankChange > 0 ? (
-                                        <div style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            color: COLORS.green,
-                                            background: `${COLORS.green}15`,
-                                            padding: '2px 6px',
-                                            borderRadius: 4,
-                                            fontSize: 11,
-                                            fontWeight: 700,
-                                        }}>
-                                            <ChevronUp size={12} />
-                                            {rankChange}
-                                        </div>
-                                    ) : rankChange < 0 ? (
-                                        <div style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            color: COLORS.red,
-                                            background: `${COLORS.red}15`,
-                                            padding: '2px 6px',
-                                            borderRadius: 4,
-                                            fontSize: 11,
-                                            fontWeight: 700,
-                                        }}>
-                                            <ChevronDown size={12} />
-                                            {Math.abs(rankChange)}
-                                        </div>
-                                    ) : (
-                                        <div style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            color: COLORS.textMuted,
-                                            background: `${COLORS.textMuted}15`,
-                                            padding: '2px 6px',
-                                            borderRadius: 4,
-                                            fontSize: 11,
-                                            fontWeight: 700,
-                                        }}>
-                                            <Minus size={12} />
-                                        </div>
-                                    )}
                                 </div>
 
                                 {/* Name & Avatar */}
-                                <div style={{ width: 200, display: 'flex', alignItems: 'center', gap: 12 }}>
+                                <div style={{ width: 220, display: 'flex', alignItems: 'center', gap: 12 }}>
                                     <div style={{
                                         width: 36,
                                         height: 36,
@@ -980,8 +472,13 @@ export default function RaceLeaderboard({ user }) {
                                         fontSize: 13,
                                         fontWeight: 700,
                                         boxShadow: `0 2px 8px ${avatarColor}44`,
+                                        overflow: 'hidden',
                                     }}>
-                                        {getInitials(racer.name)}
+                                        {racer.picture ? (
+                                            <img src={racer.picture} alt={racer.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} referrerPolicy="no-referrer" />
+                                        ) : (
+                                            getInitials(racer.name)
+                                        )}
                                     </div>
                                     <div>
                                         <div style={{
@@ -1002,49 +499,17 @@ export default function RaceLeaderboard({ user }) {
                                 </div>
 
                                 {/* Stats */}
-                                <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', paddingRight: 24 }}>
-                                    <div style={{
-                                        width: 100,
-                                        textAlign: 'right',
-                                        fontSize: 14,
-                                        fontWeight: 700,
-                                        color: racer.rollNumber === user?.rollNumber ? COLORS.brand : COLORS.text,
-                                    }}>
-                                        {racer.scorePercent}%
-                                    </div>
+                                <div style={{ flex: 1, textAlign: 'center', fontSize: 14, fontWeight: 700, color: racer.rollNumber === user?.rollNumber ? COLORS.brand : COLORS.text }}>
+                                    {racer.scorePercent}%
                                 </div>
-                                <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', paddingRight: 24 }}>
-                                    <div style={{
-                                        width: 100,
-                                        textAlign: 'right',
-                                        fontSize: 14,
-                                        fontWeight: 700,
-                                        color: COLORS.text,
-                                    }}>
-                                        {racer.netScore}
-                                    </div>
+                                <div style={{ flex: 1, textAlign: 'center', fontSize: 14, fontWeight: 700, color: COLORS.text }}>
+                                    {racer.netScore}
                                 </div>
-                                <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', paddingRight: 24 }}>
-                                    <div style={{
-                                        width: 100,
-                                        textAlign: 'right',
-                                        fontSize: 14,
-                                        fontWeight: 600,
-                                        color: COLORS.green,
-                                    }}>
-                                        {racer.stepsCompleted}/{TOTAL_STEPS}
-                                    </div>
+                                <div style={{ flex: 1, textAlign: 'center', fontSize: 14, fontWeight: 600, color: COLORS.green }}>
+                                    {racer.stepsCompleted}/{TOTAL_STEPS}
                                 </div>
-                                <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', paddingRight: 24 }}>
-                                    <div style={{
-                                        width: 100,
-                                        textAlign: 'right',
-                                        fontSize: 14,
-                                        fontWeight: 600,
-                                        color: racer.rejectionCount > 0 ? COLORS.red : COLORS.textMuted,
-                                    }}>
-                                        {racer.rejectionCount}
-                                    </div>
+                                <div style={{ flex: 1, textAlign: 'center', fontSize: 14, fontWeight: 600, color: racer.rejectionCount > 0 ? COLORS.red : COLORS.textMuted }}>
+                                    {racer.rejectionCount}
                                 </div>
 
                                 {/* Menu Dots */}
@@ -1076,42 +541,6 @@ export default function RaceLeaderboard({ user }) {
                     })}
                 </AnimatePresence>
             </div>
-
-            {/* Footer Info */}
-            <div style={{
-                marginTop: 16,
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                fontSize: 13,
-                color: COLORS.textMuted,
-            }}>
-                <div>
-                    Showing {displayRacers.length} racer{displayRacers.length !== 1 ? 's' : ''}
-                </div>
-                <div style={{
-                    display: 'flex',
-                    gap: 16,
-                    alignItems: 'center',
-                }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <div style={{ width: 12, height: 12, borderRadius: '50%', background: COLORS.green }} />
-                        <span>Improving</span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <div style={{ width: 12, height: 12, borderRadius: '50%', background: COLORS.red }} />
-                        <span>Declining</span>
-                    </div>
-                </div>
-            </div>
-            </div>
-
-            {/* Full Screen Graph Modal */}
-            <AnimatePresence>
-                {showGraph && (
-                    <FullScreenGraph racers={racers} onClose={() => setShowGraph(false)} />
-                )}
-            </AnimatePresence>
-        </>
+        </div>
     );
 }
