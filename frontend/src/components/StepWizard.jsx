@@ -21,7 +21,7 @@ export default function StepWizard({ user, refreshUser, maxStep, dashPhase = 3 }
 
   useEffect(() => {
     if (user.ocrStatus !== 'PROCESSING') return;
-    const interval = setInterval(() => { refreshUser(); }, 800);
+    const interval = setInterval(() => { refreshUser(); }, 500);
     return () => clearInterval(interval);
   }, [user.ocrStatus, refreshUser]);
 
@@ -63,8 +63,8 @@ export default function StepWizard({ user, refreshUser, maxStep, dashPhase = 3 }
     setUploadState('uploading');
     isSubmittingRef.current = true;
 
-    const ocrTimer = setTimeout(() => setUploadState(prev => prev === 'uploading' ? 'ocr' : prev), 700);
-    const aiTimer = setTimeout(() => setUploadState(prev => (prev === 'ocr' || prev === 'uploading') ? 'ai' : prev), 1800);
+    const ocrTimer = setTimeout(() => setUploadState(prev => prev === 'uploading' ? 'ocr' : prev), 300);
+    const aiTimer = setTimeout(() => setUploadState(prev => (prev === 'ocr' || prev === 'uploading') ? 'ai' : prev), 900);
 
     const fd = new FormData();
     fd.append('stepId', user.currentStep);

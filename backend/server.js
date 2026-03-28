@@ -64,25 +64,33 @@ if (process.env.REDIS_URL) {
   const connection = new IORedis(process.env.REDIS_URL, { maxRetriesPerRequest: null });
   ocrQueue = new Queue('ocrQueue', { connection });
 
-  // ── Reusable Tesseract worker — created ONCE, reused for every job ──
-  // Cold-starting Tesseract per job adds ~5-8s. This drops it to ~1-2s.
-  let tesseractWorker = null;
-  const getTesseractWorker = async () => {
-    if (!tesseractWorker) {
-      tesseractWorker = await Tesseract.createWorker('eng');
+  // ── True Concurrency with Tesseract Scheduler ──
+  // Creates a pool of 3 workers to process multiple images in parallel instantly,
+  // preventing BullMQ jobs from blocking each other on a single OCR instance.
+  const scheduler = Tesseract.createScheduler();
+  const CONCURRENCY = 3;
+  
+  (async () => {
+    try {
+      console.log(`Starting ${CONCURRENCY} Tesseract Workers for parallel processing...`);
+      for (let i = 0; i < CONCURRENCY; i++) {
+        const worker = await Tesseract.createWorker('eng');
+        scheduler.addWorker(worker);
+      }
+      console.log(`Tesseract Scheduler ready with ${CONCURRENCY} workers!`);
+    } catch (err) {
+      console.error("Failed to initialize Tesseract workers:", err);
     }
-    return tesseractWorker;
-  };
+  })();
 
-  // ── Background Worker — concurrency:5 means 5 jobs run in parallel ──
+  // ── Background Worker — concurrency matches the scheduler ──
   new Worker('ocrQueue', async job => {
     const { imagePath, userId, stepId, mimeType } = job.data;
     const user = await User.findById(userId);
     if (!user) return;
 
     try {
-      const tw = await getTesseractWorker();
-      const { data: { text: extractedText } } = await tw.recognize(imagePath);
+      const { data: { text: extractedText } } = await scheduler.addJob('recognize', imagePath);
       const minLength = user.currentStep === 7 ? 3 : 5;
       if (!extractedText || extractedText.trim().length < minLength) {
         user.ocrStatus = 'REJECTED';
@@ -141,13 +149,28 @@ if (process.env.REDIS_URL) {
 
     } catch (error) {
       console.error("Worker OCR Error:", error);
+
+      // ── Groq API limit / auth issues — friendly message, NO rejection penalty ──
+      const groqStatus = error?.status || error?.error?.status;
+      const isRateLimit = groqStatus === 429 || error?.message?.toLowerCase().includes('rate limit');
+      const isAuthError = groqStatus === 401 || error?.message?.toLowerCase().includes('invalid api key');
+
+      if (isRateLimit || isAuthError) {
+        user.ocrStatus = 'REJECTED';
+        user.ocrFeedback = "⚠️ AI API limit is over right now. Please wait a few minutes and try again. If it keeps happening, contact Dhairyashil.";
+        // Do NOT increment rejectionCount — this is not the student's fault
+        await user.save();
+        if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath);
+        return;
+      }
+
       user.ocrStatus = 'REJECTED';
       user.ocrFeedback = "Internal OCR Processing Error. Please try again.";
       user.rejectionCount = (user.rejectionCount || 0) + 1;
       await user.save();
       if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath);
     }
-  }, { connection, concurrency: 5 });
+  }, { connection, concurrency: CONCURRENCY });
 }
 
 // Database connection

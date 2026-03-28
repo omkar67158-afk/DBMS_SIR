@@ -27,9 +27,9 @@ function App() {
   useEffect(() => {
     if (user?.rollNumber) {
       setDashPhase(0);
-      const t1 = setTimeout(() => setDashPhase(1), 2000);
-      const t2 = setTimeout(() => setDashPhase(2), 9000);
-      const t3 = setTimeout(() => setDashPhase(3), 12000);
+      const t1 = setTimeout(() => setDashPhase(1), 300);
+      const t2 = setTimeout(() => setDashPhase(2), 1500);
+      const t3 = setTimeout(() => setDashPhase(3), 2500);
       return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
     }
   }, [user?.rollNumber, user?.currentStep, viewingStep]);
