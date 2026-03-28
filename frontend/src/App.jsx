@@ -6,6 +6,7 @@ import AuthLayout from './components/AuthLayout';
 import { courseQuestions } from './content';
 import RaceLeaderboard from './components/RaceLeaderboard';
 import AdminDashboard from './components/AdminDashboard';
+import Certificate from './components/Certificate';
 import { LogOut, Zap, Trophy, BookOpen, CheckCircle2, Lock, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
