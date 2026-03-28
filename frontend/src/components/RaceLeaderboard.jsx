@@ -1,7 +1,8 @@
 import { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronUp, ChevronDown, Minus, Calendar, Plus } from 'lucide-react';
+import { ChevronUp, ChevronDown, Minus, Calendar, Plus, Search, BarChart3, X } from 'lucide-react';
 import axios from 'axios';
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area } from 'recharts';
 
 const TOTAL_STEPS = 8;
 const MAX_SCORE = 800;
@@ -40,13 +41,462 @@ function normalise(r) {
 
 function getInitials(name) {
     if (!name) return '?';
-    const parts = name.trim().split(/\s+/);
-    if (parts.length === 1) {
-        // Single name - use first two characters
-        return name.substring(0, 2).toUpperCase();
+    return name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+}
+
+/* ─ Full Screen Graph Component ─ */
+function FullScreenGraph({ racers, onClose }) {
+    const [chartType, setChartType] = useState('area'); // 'line', 'bar', 'area'
+    const [viewMode, setViewMode] = useState('comparison'); // 'comparison', 'timeline'
+    
+    // Prepare comparison data
+    const comparisonData = racers.map(racer => ({
+        name: racer.name.split(' ').slice(0, 2).join(' '),
+        rollNumber: racer.rollNumber,
+        score: racer.netScore,
+        steps: racer.stepsCompleted,
+        percentage: racer.scorePercent,
+    })).slice(0, 15); // Show top 15 for better visualization
+
+    // Prepare timeline data (progression through steps)
+    const timelineData = [];
+    const maxSteps = Math.max(...racers.map(r => r.stepsCompleted), 8);
+    
+    for (let step = 1; step <= maxSteps; step++) {
+        const stepData = { step: `Step ${step}` };
+        racers.forEach((racer, idx) => {
+            if (racer.stepsCompleted >= step) {
+                const key = racer.name.split(' ').slice(0, 2).join(' ');
+                stepData[key] = step * 100 - (racer.rejectionCount || 0) * 25;
+            }
+        });
+        timelineData.push(stepData);
     }
-    // Multiple names - use first letter of first and last name
-    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+
+    return (
+        <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                background: 'rgba(0, 0, 0, 0.85)',
+                backdropFilter: 'blur(8px)',
+                zIndex: 99999,
+                display: 'flex',
+                flexDirection: 'column',
+                padding: '40px',
+            }}
+            onClick={onClose}
+        >
+            {/* Header */}
+            <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: 32,
+            }}>
+                <div>
+                    <h2 style={{
+                        fontSize: 32,
+                        fontWeight: 700,
+                        color: '#fff',
+                        margin: '0 0 8px 0',
+                    }}>
+                        Performance Analytics 📊
+                    </h2>
+                    <p style={{
+                        fontSize: 16,
+                        color: '#9ca3af',
+                        margin: 0,
+                    }}>
+                        Real-time comparison of all students
+                    </p>
+                </div>
+                <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                    {/* View Mode Selector */}
+                    <div style={{
+                        display: 'flex',
+                        gap: 4,
+                        padding: '6px',
+                        background: 'rgba(255, 255, 255, 0.1)',
+                        borderRadius: 10,
+                    }}>
+                        {[
+                            { id: 'comparison', label: '📊 Comparison', icon: '📊' },
+                            { id: 'timeline', label: '⏱️ Timeline', icon: '⏱️' }
+                        ].map(mode => (
+                            <button
+                                key={mode.id}
+                                onClick={(e) => { e.stopPropagation(); setViewMode(mode.id); }}
+                                style={{
+                                    padding: '8px 16px',
+                                    borderRadius: 8,
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    background: viewMode === mode.id ? '#fff' : 'transparent',
+                                    color: viewMode === mode.id ? '#2563eb' : '#fff',
+                                    fontSize: 13,
+                                    fontWeight: 600,
+                                    transition: 'all 0.2s',
+                                }}
+                            >
+                                {mode.label}
+                            </button>
+                        ))}
+                    </div>
+                    
+                    {/* Chart Type Selector */}
+                    <div style={{
+                        display: 'flex',
+                        gap: 4,
+                        padding: '6px',
+                        background: 'rgba(255, 255, 255, 0.1)',
+                        borderRadius: 10,
+                    }}>
+                        {['area', 'line', 'bar'].map(type => (
+                            <button
+                                key={type}
+                                onClick={(e) => { e.stopPropagation(); setChartType(type); }}
+                                style={{
+                                    padding: '8px 16px',
+                                    borderRadius: 8,
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    background: chartType === type ? '#fff' : 'transparent',
+                                    color: chartType === type ? '#2563eb' : '#fff',
+                                    fontSize: 13,
+                                    fontWeight: 600,
+                                    transition: 'all 0.2s',
+                                }}
+                            >
+                                {type.charAt(0).toUpperCase() + type.slice(1)}
+                            </button>
+                        ))}
+                    </div>
+                    <button
+                        onClick={onClose}
+                        style={{
+                            width: 40,
+                            height: 40,
+                            borderRadius: '50%',
+                            background: 'rgba(255, 255, 255, 0.1)',
+                            border: 'none',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: '#fff',
+                            transition: 'all 0.2s',
+                        }}
+                        onMouseEnter={(e) => e.target.style.background = 'rgba(255, 255, 255, 0.2)'}
+                        onMouseLeave={(e) => e.target.style.background = 'rgba(255, 255, 255, 0.1)'}
+                    >
+                        <X size={20} />
+                    </button>
+                </div>
+            </div>
+
+            {/* Charts */}
+            {viewMode === 'comparison' ? (
+                <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+                    {/* Score Comparison Chart */}
+                    <div style={{
+                        background: '#fff',
+                        borderRadius: 16,
+                        padding: 24,
+                        boxShadow: '0 4px 24px rgba(0,0,0,0.15)',
+                    }}>
+                        <h3 style={{
+                            fontSize: 18,
+                            fontWeight: 700,
+                            color: '#111827',
+                            margin: '0 0 20px 0',
+                        }}>
+                            Net Score Comparison (Top 15)
+                        </h3>
+                        <ResponsiveContainer width="100%" height={350}>
+                            {chartType === 'area' ? (
+                                <AreaChart data={comparisonData}>
+                                    <defs>
+                                        <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#2563eb" stopOpacity={0.8}/>
+                                            <stop offset="95%" stopColor="#2563eb" stopOpacity={0}/>
+                                        </linearGradient>
+                                    </defs>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                                    <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} tick={{ fontSize: 11 }} />
+                                    <YAxis stroke="#6b7280" />
+                                    <Tooltip 
+                                        contentStyle={{ 
+                                            borderRadius: 12, 
+                                            border: 'none',
+                                            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                                        }}
+                                    />
+                                    <Area 
+                                        type="monotone" 
+                                        dataKey="score" 
+                                        stroke="#2563eb" 
+                                        fillOpacity={1} 
+                                        fill="url(#colorScore)" 
+                                    />
+                                </AreaChart>
+                            ) : chartType === 'line' ? (
+                                <LineChart data={comparisonData}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                                    <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} tick={{ fontSize: 11 }} />
+                                    <YAxis stroke="#6b7280" />
+                                    <Tooltip 
+                                        contentStyle={{ 
+                                            borderRadius: 12, 
+                                            border: 'none',
+                                            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                                        }}
+                                    />
+                                    <Legend />
+                                    <Line 
+                                        type="monotone" 
+                                        dataKey="score" 
+                                        stroke="#2563eb" 
+                                        strokeWidth={3}
+                                        dot={{ fill: '#2563eb', strokeWidth: 2, r: 6 }}
+                                    />
+                                </LineChart>
+                            ) : (
+                                <BarChart data={comparisonData}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                                    <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} tick={{ fontSize: 11 }} />
+                                    <YAxis stroke="#6b7280" />
+                                    <Tooltip 
+                                        contentStyle={{ 
+                                            borderRadius: 12, 
+                                            border: 'none',
+                                            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                                        }}
+                                    />
+                                    <Legend />
+                                    <Bar 
+                                        dataKey="score" 
+                                        fill="#2563eb" 
+                                        radius={[8, 8, 0, 0]}
+                                    />
+                                </BarChart>
+                            )}
+                        </ResponsiveContainer>
+                    </div>
+
+                    {/* Steps Progress Chart */}
+                    <div style={{
+                        background: '#fff',
+                        borderRadius: 16,
+                        padding: 24,
+                        boxShadow: '0 4px 24px rgba(0,0,0,0.15)',
+                    }}>
+                        <h3 style={{
+                            fontSize: 18,
+                            fontWeight: 700,
+                            color: '#111827',
+                            margin: '0 0 20px 0',
+                        }}>
+                            Steps Completed Progress
+                        </h3>
+                        <ResponsiveContainer width="100%" height={350}>
+                            {chartType === 'area' ? (
+                                <AreaChart data={comparisonData}>
+                                    <defs>
+                                        <linearGradient id="colorSteps" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#059669" stopOpacity={0.8}/>
+                                            <stop offset="95%" stopColor="#059669" stopOpacity={0}/>
+                                        </linearGradient>
+                                    </defs>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                                    <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} tick={{ fontSize: 11 }} />
+                                    <YAxis stroke="#6b7280" domain={[0, 8]} />
+                                    <Tooltip 
+                                        contentStyle={{ 
+                                            borderRadius: 12, 
+                                            border: 'none',
+                                            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                                        }}
+                                    />
+                                    <Area 
+                                        type="monotone" 
+                                        dataKey="steps" 
+                                        stroke="#059669" 
+                                        fillOpacity={1} 
+                                        fill="url(#colorSteps)" 
+                                    />
+                                </AreaChart>
+                            ) : chartType === 'line' ? (
+                                <LineChart data={comparisonData}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                                    <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} tick={{ fontSize: 11 }} />
+                                    <YAxis stroke="#6b7280" domain={[0, 8]} />
+                                    <Tooltip 
+                                        contentStyle={{ 
+                                            borderRadius: 12, 
+                                            border: 'none',
+                                            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                                        }}
+                                    />
+                                    <Legend />
+                                    <Line 
+                                        type="monotone" 
+                                        dataKey="steps" 
+                                        stroke="#059669" 
+                                        strokeWidth={3}
+                                        dot={{ fill: '#059669', strokeWidth: 2, r: 6 }}
+                                    />
+                                </LineChart>
+                            ) : (
+                                <BarChart data={comparisonData}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                                    <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} tick={{ fontSize: 11 }} />
+                                    <YAxis stroke="#6b7280" domain={[0, 8]} />
+                                    <Tooltip 
+                                        contentStyle={{ 
+                                            borderRadius: 12, 
+                                            border: 'none',
+                                            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                                        }}
+                                    />
+                                    <Legend />
+                                    <Bar 
+                                        dataKey="steps" 
+                                        fill="#059669" 
+                                        radius={[8, 8, 0, 0]}
+                                    />
+                                </BarChart>
+                            )}
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+            ) : (
+                /* Timeline View - Step Progression */
+                <div style={{
+                    flex: 1,
+                    background: '#fff',
+                    borderRadius: 16,
+                    padding: 24,
+                    boxShadow: '0 4px 24px rgba(0,0,0,0.15)',
+                }}>
+                    <h3 style={{
+                        fontSize: 18,
+                        fontWeight: 700,
+                        color: '#111827',
+                        margin: '0 0 20px 0',
+                    }}>
+                        Step-by-Step Progression Race 🏎️
+                    </h3>
+                    <ResponsiveContainer width="100%" height={500}>
+                        {chartType === 'area' ? (
+                            <AreaChart data={timelineData}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                                <XAxis dataKey="step" stroke="#6b7280" />
+                                <YAxis stroke="#6b7280" />
+                                <Tooltip 
+                                    contentStyle={{ 
+                                        borderRadius: 12, 
+                                        border: 'none',
+                                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                                    }}
+                                />
+                                <Legend />
+                                {Object.keys(timelineData[0] || {}).filter(key => key !== 'step').slice(0, 10).map((key, idx) => (
+                                    <Area
+                                        key={key}
+                                        type="monotone"
+                                        dataKey={key}
+                                        stroke={AVATAR_PALETTE[idx % AVATAR_PALETTE.length]}
+                                        fill={`${AVATAR_PALETTE[idx % AVATAR_PALETTE.length]}20`}
+                                        strokeWidth={2}
+                                    />
+                                ))}
+                            </AreaChart>
+                        ) : chartType === 'line' ? (
+                            <LineChart data={timelineData}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                                <XAxis dataKey="step" stroke="#6b7280" />
+                                <YAxis stroke="#6b7280" />
+                                <Tooltip 
+                                    contentStyle={{ 
+                                        borderRadius: 12, 
+                                        border: 'none',
+                                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                                    }}
+                                />
+                                <Legend />
+                                {Object.keys(timelineData[0] || {}).filter(key => key !== 'step').slice(0, 10).map((key, idx) => (
+                                    <Line
+                                        key={key}
+                                        type="monotone"
+                                        dataKey={key}
+                                        stroke={AVATAR_PALETTE[idx % AVATAR_PALETTE.length]}
+                                        strokeWidth={3}
+                                        dot={false}
+                                    />
+                                ))}
+                            </LineChart>
+                        ) : (
+                            <BarChart data={timelineData}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                                <XAxis dataKey="step" stroke="#6b7280" />
+                                <YAxis stroke="#6b7280" />
+                                <Tooltip 
+                                    contentStyle={{ 
+                                        borderRadius: 12, 
+                                        border: 'none',
+                                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                                    }}
+                                />
+                                <Legend />
+                                {Object.keys(timelineData[0] || {}).filter(key => key !== 'step').slice(0, 6).map((key, idx) => (
+                                    <Bar
+                                        key={key}
+                                        dataKey={key}
+                                        fill={AVATAR_PALETTE[idx % AVATAR_PALETTE.length]}
+                                    />
+                                ))}
+                            </BarChart>
+                        )}
+                    </ResponsiveContainer>
+                </div>
+            )}
+
+            {/* Footer Stats */}
+            <div style={{
+                display: 'flex',
+                gap: 24,
+                marginTop: 24,
+                padding: '20px 24px',
+                background: 'rgba(255, 255, 255, 0.05)',
+                borderRadius: 16,
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+            }}>
+                <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, color: '#9ca3af', marginBottom: 4 }}>Total Students</div>
+                    <div style={{ fontSize: 28, fontWeight: 700, color: '#fff' }}>{racers.length}</div>
+                </div>
+                <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, color: '#9ca3af', marginBottom: 4 }}>Average Score</div>
+                    <div style={{ fontSize: 28, fontWeight: 700, color: '#fff' }}>
+                        {Math.round(racers.reduce((sum, r) => sum + r.netScore, 0) / racers.length)}
+                    </div>
+                </div>
+                <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, color: '#9ca3af', marginBottom: 4 }}>Top Performer</div>
+                    <div style={{ fontSize: 20, fontWeight: 700, color: '#fbbf24' }}>
+                        {racers[0]?.name.split(' ').slice(0, 2).join(' ') || 'N/A'}
+                    </div>
+                </div>
+            </div>
+        </motion.div>
+    );
 }
 
 /* ─ Skeleton Row ─ */
@@ -74,6 +524,12 @@ function SkeletonRow() {
 export default function RaceLeaderboard({ user }) {
     const [racers, setRacers] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [showGraph, setShowGraph] = useState(false);
+    const [dateRange, setDateRange] = useState({
+        start: new Date('2025-01-01'),
+        end: new Date()
+    });
     const intervalRef = useRef(null);
 
     const fetchLeaderboard = async () => {
@@ -82,7 +538,26 @@ export default function RaceLeaderboard({ user }) {
             const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/leaderboard`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
-            setRacers((res.data || []).map(normalise));
+            const data = (res.data || []).map(normalise);
+            
+            // Set date range based on actual submission data
+            if (data.length > 0) {
+                const allDates = data.flatMap(r => [
+                    r.firstSubmission ? new Date(r.firstSubmission).getTime() : null,
+                    r.lastSubmission ? new Date(r.lastSubmission).getTime() : null,
+                ].filter(Boolean));
+                
+                if (allDates.length > 0) {
+                    const minDate = Math.min(...allDates);
+                    const maxDate = Math.max(...allDates);
+                    setDateRange({
+                        start: new Date(minDate),
+                        end: new Date(maxDate),
+                    });
+                }
+            }
+            
+            setRacers(data);
             setLoading(false);
         } catch {
             setLoading(false);
@@ -108,18 +583,36 @@ export default function RaceLeaderboard({ user }) {
         </div>
     );
 
+    // Filter racers based on search query
+    const filteredRacers = racers.filter(racer => {
+        const query = searchQuery.toLowerCase();
+        return (
+            racer.name.toLowerCase().includes(query) ||
+            racer.rollNumber.toLowerCase().includes(query)
+        );
+    });
+
+    // Filter by date range (assuming submissions have dates)
+    const dateFilteredRacers = filteredRacers.filter(racer => {
+        const racerDate = racer.completedAt ? new Date(racer.completedAt) : new Date();
+        return racerDate >= dateRange.start && racerDate <= dateRange.end;
+    });
+
+    const displayRacers = dateFilteredRacers.length > 0 ? dateFilteredRacers : filteredRacers;
+
     return (
-        <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            flex: 1,
-            height: '100%',
-            width: '100%',
-            background: COLORS.bg,
-            fontFamily: 'inherit',
-            padding: '24px',
-            overflow: 'auto',
-        }}>
+        <>
+            <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                flex: 1,
+                height: '100%',
+                width: '100%',
+                background: COLORS.bg,
+                fontFamily: 'inherit',
+                padding: '24px',
+                overflow: 'auto',
+            }}>
             {/* Header */}
             <div style={{
                 display: 'flex',
@@ -141,7 +634,7 @@ export default function RaceLeaderboard({ user }) {
                     gap: 12,
                     alignItems: 'center',
                 }}>
-                    {/* Team Filter */}
+                    {/* Search Box */}
                     <div style={{
                         display: 'flex',
                         alignItems: 'center',
@@ -150,24 +643,37 @@ export default function RaceLeaderboard({ user }) {
                         background: COLORS.card,
                         borderRadius: 8,
                         border: `1px solid ${COLORS.border}`,
-                        cursor: 'pointer',
+                        minWidth: 250,
                     }}>
-                        <div style={{
-                            width: 24,
-                            height: 24,
-                            borderRadius: '50%',
-                            background: COLORS.brand,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            color: '#fff',
-                            fontSize: 12,
-                            fontWeight: 700,
-                        }}>
-                            A
-                        </div>
-                        <span style={{ fontSize: 14, fontWeight: 500, color: COLORS.text }}>All Teams</span>
-                        <ChevronDown size={16} color={COLORS.textMuted} />
+                        <Search size={16} color={COLORS.textMuted} />
+                        <input
+                            type="text"
+                            placeholder="Search by name or roll number..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            style={{
+                                border: 'none',
+                                outline: 'none',
+                                fontSize: 14,
+                                color: COLORS.text,
+                                background: 'transparent',
+                                flex: 1,
+                            }}
+                        />
+                        {searchQuery && (
+                            <button
+                                onClick={() => setSearchQuery('')}
+                                style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    padding: 4,
+                                    color: COLORS.textMuted,
+                                }}
+                            >
+                                <X size={14} />
+                            </button>
+                        )}
                     </div>
 
                     {/* Date Range */}
@@ -179,35 +685,92 @@ export default function RaceLeaderboard({ user }) {
                         background: COLORS.card,
                         borderRadius: 8,
                         border: `1px solid ${COLORS.border}`,
+                        position: 'relative',
+                        cursor: 'pointer',
                     }}>
-                        <button style={{ 
-                            background: 'none', 
-                            border: 'none', 
-                            cursor: 'pointer',
-                            padding: 4,
-                        }}>
-                            <ChevronUp size={16} color={COLORS.textMuted} />
-                        </button>
+                        <Calendar size={16} color={COLORS.textMuted} />
                         <div style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 4,
+                        }}>
+                            <div style={{
+                                fontSize: 11,
+                                fontWeight: 600,
+                                color: COLORS.textMuted,
+                                textTransform: 'uppercase',
+                            }}>
+                                From
+                            </div>
+                            <input
+                                type="date"
+                                value={dateRange.start.toISOString().split('T')[0]}
+                                onChange={(e) => setDateRange(prev => ({ ...prev, start: new Date(e.target.value) }))}
+                                style={{
+                                    border: 'none',
+                                    outline: 'none',
+                                    fontSize: 12,
+                                    color: COLORS.text,
+                                    background: 'transparent',
+                                    cursor: 'pointer',
+                                    fontWeight: 600,
+                                }}
+                            />
+                            <div style={{
+                                fontSize: 11,
+                                fontWeight: 600,
+                                color: COLORS.textMuted,
+                                textTransform: 'uppercase',
+                            }}>
+                                To
+                            </div>
+                            <input
+                                type="date"
+                                value={dateRange.end.toISOString().split('T')[0]}
+                                onChange={(e) => setDateRange(prev => ({ ...prev, end: new Date(e.target.value) }))}
+                                style={{
+                                    border: 'none',
+                                    outline: 'none',
+                                    fontSize: 12,
+                                    color: COLORS.text,
+                                    background: 'transparent',
+                                    cursor: 'pointer',
+                                    fontWeight: 600,
+                                }}
+                            />
+                        </div>
+                    </div>
+
+                    {/* View Graph Button */}
+                    <button
+                        onClick={() => setShowGraph(true)}
+                        style={{
                             display: 'flex',
                             alignItems: 'center',
                             gap: 8,
-                            fontSize: 14,
-                            fontWeight: 500,
-                            color: COLORS.text,
-                        }}>
-                            <Calendar size={16} color={COLORS.textMuted} />
-                            Dec 27, 2022 - Jan 03, 2023
-                        </div>
-                        <button style={{ 
-                            background: 'none', 
-                            border: 'none', 
+                            padding: '8px 16px',
+                            background: COLORS.brand,
+                            border: 'none',
+                            borderRadius: 8,
                             cursor: 'pointer',
-                            padding: 4,
-                        }}>
-                            <ChevronDown size={16} color={COLORS.textMuted} />
-                        </button>
-                    </div>
+                            color: '#fff',
+                            fontSize: 14,
+                            fontWeight: 600,
+                            transition: 'all 0.2s',
+                            boxShadow: '0 2px 8px rgba(37, 99, 235, 0.2)',
+                        }}
+                        onMouseEnter={(e) => {
+                            e.target.style.background = '#1d4ed8';
+                            e.target.style.transform = 'translateY(-1px)';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.target.style.background = COLORS.brand;
+                            e.target.style.transform = 'translateY(0)';
+                        }}
+                    >
+                        <BarChart3 size={16} />
+                        View Analytics
+                    </button>
 
                     {/* Avatars */}
                     <div style={{ display: 'flex', alignItems: 'center' }}>
@@ -327,7 +890,7 @@ export default function RaceLeaderboard({ user }) {
 
                 {/* Table Body */}
                 <AnimatePresence>
-                    {racers.map((racer, idx) => {
+                    {displayRacers.map((racer, idx) => {
                         const avatarColor = AVATAR_PALETTE[idx % AVATAR_PALETTE.length];
                         const prevRank = racer.prevRank || idx + 1;
                         const rankChange = prevRank - (idx + 1);
@@ -524,7 +1087,7 @@ export default function RaceLeaderboard({ user }) {
                 color: COLORS.textMuted,
             }}>
                 <div>
-                    Showing {racers.length} racer{racers.length !== 1 ? 's' : ''}
+                    Showing {displayRacers.length} racer{displayRacers.length !== 1 ? 's' : ''}
                 </div>
                 <div style={{
                     display: 'flex',
@@ -541,6 +1104,14 @@ export default function RaceLeaderboard({ user }) {
                     </div>
                 </div>
             </div>
-        </div>
+            </div>
+
+            {/* Full Screen Graph Modal */}
+            <AnimatePresence>
+                {showGraph && (
+                    <FullScreenGraph racers={racers} onClose={() => setShowGraph(false)} />
+                )}
+            </AnimatePresence>
+        </>
     );
 }
