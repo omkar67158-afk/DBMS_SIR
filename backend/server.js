@@ -1,4 +1,6 @@
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '.env') });
+console.log("API KEY:", process.env.GROQ_API_KEY);
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
@@ -76,19 +78,21 @@ if (process.env.REDIS_URL) {
 
   // ── Background Worker — concurrency:5 means 5 jobs run in parallel ──
   new Worker('ocrQueue', async job => {
-    const { imagePath, userId, stepId, mimeType } = job.data;
+    const { imageData, userId, stepId, mimeType } = job.data;
     const user = await User.findById(userId);
     if (!user) return;
 
     try {
-      if (!fs.existsSync(imagePath)) {
-        throw new Error(`Image file not found on disk at ${imagePath}`);
+      if (!imageData || !imageData.includes('base64,')) {
+        throw new Error(`Invalid image data format from queue payload.`);
       }
+      
+      const imageBuffer = Buffer.from(imageData.split(',')[1], 'base64');
       
       let extractedText = '';
       try {
         const tw = await getTesseractWorker();
-        const { data: { text } } = await tw.recognize(imagePath);
+        const { data: { text } } = await tw.recognize(imageBuffer);
         extractedText = text;
       } catch (ocrFailure) {
         console.error("Tesseract Engine Error:", ocrFailure);
@@ -96,7 +100,6 @@ if (process.env.REDIS_URL) {
         user.ocrFeedback = "Image text could not be extracted due to processing engine timeout or failure. Please try uploading again.";
         user.rejectionCount = (user.rejectionCount || 0) + 1;
         await user.save();
-        if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath);
         return;
       }
 
@@ -106,7 +109,6 @@ if (process.env.REDIS_URL) {
         user.ocrFeedback = "Could not read any clear text from the screenshot. Please upload a higher quality, legible image.";
         user.rejectionCount = (user.rejectionCount || 0) + 1;
         await user.save();
-        if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath);
         return;
       }
 
@@ -136,7 +138,6 @@ if (process.env.REDIS_URL) {
         user.ocrFeedback = "AI Verification Service is currently busy (Rate Limit). Please wait 10 seconds and try again.";
         user.rejectionCount = (user.rejectionCount || 0) + 1;
         await user.save();
-        if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath);
         return;
       }
 
@@ -156,7 +157,6 @@ if (process.env.REDIS_URL) {
         user.ocrFeedback = "AI returned an invalid response format. Please submit your image again.";
         user.rejectionCount = (user.rejectionCount || 0) + 1;
         await user.save();
-        if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath);
         return;
       }
 
@@ -165,13 +165,11 @@ if (process.env.REDIS_URL) {
         user.ocrFeedback = `AI Rejected: ${aiResult.reason}`;
         user.rejectionCount = (user.rejectionCount || 0) + 1;
         await user.save();
-        if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath);
         return;
       }
 
       // Read image for MongoDB storage at the point of saving (not in queue payload)
-      const imgBuffer = fs.existsSync(imagePath) ? fs.readFileSync(imagePath) : null;
-      const base64Image = imgBuffer ? `data:${mimeType || 'image/jpeg'};base64,${imgBuffer.toString('base64')}` : null;
+      const base64Image = imageData;
 
       user.submissions.push({ stepId: user.currentStep, imageData: base64Image });
       user.currentStep += 1;
@@ -183,8 +181,6 @@ if (process.env.REDIS_URL) {
       user.ocrStatus = 'IDLE';
       user.ocrFeedback = null;
       await user.save();
-
-      if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath);
 
     } catch (error) {
       console.error("Worker Catch-All Error:", error);
@@ -202,7 +198,6 @@ if (process.env.REDIS_URL) {
       } catch(e) {
           console.error("Failed to recover user state:", e);
       }
-      if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath);
     }
   }, { connection, concurrency: 5 });
 }
@@ -388,13 +383,21 @@ app.post('/api/progress/submit', requireAuth, upload.single('screenshot'), async
     user.ocrFeedback = null;
     await user.save();
 
-    // Add to Redis Queue with only essential metadata (no binary blob in Redis)
+    // Convert file to Base64 to safely embed into the Redis job payload
+    // This entirely removes the risk of worker instances missing local files (ENOENT path mismatch)
+    const imgBuffer = fs.readFileSync(req.file.path);
+    const base64Image = `data:${req.file.mimetype || 'image/jpeg'};base64,${imgBuffer.toString('base64')}`;
+    
+    // Clean up purely temporal disk file
+    fs.unlinkSync(req.file.path);
+
+    // Add to Redis Queue with the complete base64 payload
     await ocrQueue.add('processOCR', {
-      imagePath: req.file.path,
+      imageData: base64Image,
       userId: req.userId,
       stepId: parseInt(stepId),
       mimeType: req.file.mimetype
-    });
+    }, { removeOnComplete: true, removeOnFail: true });
 
     res.json({ message: "Processing started", status: "PROCESSING" });
 
