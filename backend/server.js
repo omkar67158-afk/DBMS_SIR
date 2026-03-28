@@ -352,7 +352,7 @@ app.get('/api/leaderboard', requireAuth, async (req, res) => {
   try {
     const users = await User.find(
       { rollNumber: { $exists: true, $ne: null } },
-      'name rollNumber currentStep isCompleted completedAt rejectionCount'
+      'name officialName rollNumber currentStep isCompleted completedAt rejectionCount'
     );
 
     const MAX_SCORE = 800; // 8 steps × 100
@@ -366,7 +366,7 @@ app.get('/api/leaderboard', requireAuth, async (req, res) => {
         const netScore = steps * 100 - rejections * 25;
         const scorePercent = Math.max(0, Math.round((netScore / MAX_SCORE) * 100));
         return {
-          name: u.name,
+          name: u.officialName || u.name,   // prefer real name entered at roll number setup
           rollNumber: u.rollNumber,
           currentStep: u.currentStep,
           isCompleted: u.isCompleted,

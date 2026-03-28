@@ -1,8 +1,6 @@
-import { useEffect, useState, useRef, Suspense } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Canvas, useFrame } from '@react-three/fiber';
-import { useGLTF, OrbitControls, ContactShadows, Environment } from '@react-three/drei';
-import { TrendingUp, Zap, Award, AlertCircle, Hash } from 'lucide-react';
+import { ChevronUp, ChevronDown, Minus, Calendar, Plus } from 'lucide-react';
 import axios from 'axios';
 
 const TOTAL_STEPS = 8;
@@ -19,6 +17,8 @@ const COLORS = {
     text: '#111827',
     textMuted: '#6b7280',
     textFaint: '#9ca3af',
+    bg: '#f9fafb',
+    card: '#ffffff',
 };
 
 const AVATAR_PALETTE = [
@@ -40,243 +40,40 @@ function normalise(r) {
 
 function getInitials(name) {
     if (!name) return '?';
-    return name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+    const parts = name.trim().split(/\s+/);
+    if (parts.length === 1) {
+        // Single name - use first two characters
+        return name.substring(0, 2).toUpperCase();
+    }
+    // Multiple names - use first letter of first and last name
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-/* ── Skeleton ── */
-function SkeletonRow({ delay = 0 }) {
+/* ─ Skeleton Row ─ */
+function SkeletonRow() {
     return (
         <div style={{
-            display: 'flex', alignItems: 'center', gap: 14,
-            padding: '13px 20px', borderRadius: 12,
-            background: '#fafafa', border: '1px solid #f3f4f6',
-            animation: `skeletonPulse 1.4s ease-in-out ${delay}s infinite alternate`,
+            display: 'flex', alignItems: 'center', gap: 16,
+            padding: '16px 20px',
+            background: COLORS.card,
+            borderBottom: `1px solid ${COLORS.border}`,
         }}>
-            <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#e5e7eb' }} />
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 7 }}>
-                <div style={{ width: '38%', height: 10, borderRadius: 4, background: '#e5e7eb' }} />
-                <div style={{ width: '100%', height: 5, borderRadius: 99, background: '#e5e7eb' }} />
+            <div style={{ width: 40, height: 20, borderRadius: 4, background: '#e5e7eb' }} />
+            <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#e5e7eb' }} />
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ width: '30%', height: 12, borderRadius: 4, background: '#e5e7eb' }} />
+                <div style={{ width: '20%', height: 10, borderRadius: 4, background: '#e5e7eb' }} />
             </div>
-            <div style={{ width: 56, height: 22, borderRadius: 20, background: '#e5e7eb' }} />
+            {[120, 100, 100, 100].map((w, i) => (
+                <div key={i} style={{ width: w, height: 20, borderRadius: 4, background: '#e5e7eb' }} />
+            ))}
         </div>
     );
 }
 
-/* ── Animated Flip Button ── */
-function AnimatedStatButton({ label, value, color, icon, small }) {
-    const [revealed, setRevealed] = useState(false);
-
-    useEffect(() => {
-        if (revealed) {
-            const t = setTimeout(() => setRevealed(false), 10000);
-            return () => clearTimeout(t);
-        }
-    }, [revealed]);
-
-    const w = small ? 110 : 130;
-    const h = small ? 52 : 60;
-
-    return (
-        <div
-            style={{ perspective: 1000, width: w, height: h, zIndex: 20, cursor: 'pointer' }}
-            onClick={() => setRevealed(r => !r)}
-        >
-            <motion.div
-                initial={false}
-                animate={{ rotateX: revealed ? 180 : 0 }}
-                transition={{ duration: 0.6, type: 'spring', stiffness: 200, damping: 20 }}
-                style={{ width: '100%', height: '100%', position: 'relative', transformStyle: 'preserve-3d' }}
-            >
-                {/* Front */}
-                <div style={{
-                    position: 'absolute', inset: 0, backfaceVisibility: 'hidden',
-                    background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(12px)',
-                    borderRadius: 14, border: `1px solid ${COLORS.border}`,
-                    boxShadow: '0 4px 16px rgba(0,0,0,0.07)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-                }}>
-                    {icon}
-                    <span style={{ fontWeight: 800, color: COLORS.textMuted, fontSize: small ? 11 : 13 }}>{label}</span>
-                </div>
-                {/* Back */}
-                <div style={{
-                    position: 'absolute', inset: 0, backfaceVisibility: 'hidden',
-                    background: color, transform: 'rotateX(180deg)',
-                    borderRadius: 14, border: `1px solid ${color}`,
-                    boxShadow: `0 8px 28px ${color}66`,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>
-                    <span style={{ fontSize: small ? 16 : 20, fontWeight: 900, color: '#fff' }}>{value}</span>
-                </div>
-            </motion.div>
-        </div>
-    );
-}
-
-/* ── Attractive 3D Stages (Redesigned) ── */
-const Podium3D = ({ racer, pos, isSelected, onClick }) => {
-    if (!racer) return null;
-
-    const cfg = {
-        1: {
-            h: 140, w: 120,
-            base: 'linear-gradient(180deg, #fcd34d 0%, #b45309 100%)',
-            top: '#fde68a',
-            bottom: '#78350f',
-            glow: 'rgba(251, 191, 36, 0.6)',
-            color: '#fbbf24',
-            emoji: '👑',
-        },
-        2: {
-            h: 100, w: 110,
-            base: 'linear-gradient(180deg, #cbd5e1 0%, #334155 100%)',
-            top: '#e2e8f0',
-            bottom: '#1e293b',
-            glow: 'rgba(148, 163, 184, 0.6)',
-            color: '#94a3b8',
-            emoji: '⭐',
-        },
-        3: {
-            h: 70, w: 100,
-            base: 'linear-gradient(180deg, #fdba74 0%, #7c2d12 100%)',
-            top: '#ffedd5',
-            bottom: '#431407',
-            glow: 'rgba(217, 119, 6, 0.6)',
-            color: '#d97706',
-            emoji: '🔥',
-        },
-    }[pos];
-
-    const lift = isSelected ? -15 : 0;
-    const scale = isSelected ? 1.05 : 0.95;
-
-    return (
-        <div
-            onClick={onClick}
-            style={{
-                display: 'flex', flexDirection: 'column', alignItems: 'center',
-                justifyContent: 'flex-end', cursor: 'pointer', userSelect: 'none',
-                transition: 'all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)',
-                transform: `translateY(${lift}px) scale(${scale})`,
-                opacity: isSelected ? 1 : 0.7,
-                zIndex: pos === 1 ? 10 : 5,
-                margin: '0 -5px',
-            }}
-        >
-            {/* ── Suspended Racer Card ── */}
-            <div style={{
-                textAlign: 'center', marginBottom: 16,
-                position: 'relative', zIndex: 10,
-                animation: isSelected ? 'floatRacer 3s ease-in-out infinite' : 'none',
-            }}>
-                <div style={{
-                    fontSize: pos === 1 ? 48 : 36,
-                    filter: `drop-shadow(0 10px 10px rgba(0,0,0,0.2))`,
-                }}>
-                    {cfg.emoji}
-                </div>
-                <div style={{
-                    marginTop: 8, padding: '6px 18px', borderRadius: 24,
-                    background: 'rgba(255, 255, 255, 1)',
-                    border: `2px solid ${cfg.color}`,
-                    boxShadow: `0 8px 24px ${cfg.glow}, 0 4px 8px rgba(0,0,0,0.1)`,
-                    fontSize: pos === 1 ? 16 : 14,
-                    fontWeight: 900, color: '#0f172a',
-                    whiteSpace: 'nowrap',
-                }}>
-                    {racer.name?.split(' ')[0]}
-                </div>
-                <div style={{
-                    fontSize: pos === 1 ? 16 : 14, fontWeight: 900,
-                    color: '#fff', marginTop: 8,
-                    background: cfg.color, padding: '4px 12px', borderRadius: 12,
-                    display: 'inline-block',
-                    boxShadow: `0 4px 12px ${cfg.glow}`,
-                }}>
-                    #{pos} • {racer.scorePercent}%
-                </div>
-            </div>
-
-            {/* ── True 3D CSS Cylinder Pedestal ── */}
-            <div style={{
-                position: 'relative',
-                width: cfg.w,
-                height: cfg.h + (cfg.w * 0.25),
-                filter: `drop-shadow(0 20px 20px rgba(0,0,0,0.15))`,
-            }}>
-                {/* Top Ellipse (The Platform) */}
-                <div style={{
-                    position: 'absolute', top: 0, left: 0,
-                    width: '100%', height: cfg.w * 0.3,
-                    background: cfg.top,
-                    borderRadius: '50%',
-                    border: '2px solid rgba(255,255,255,0.8)',
-                    boxShadow: `inset 0 -10px 20px rgba(0,0,0,0.1)`,
-                    zIndex: 3,
-                }} />
-
-                {/* Body (The Extrusion) */}
-                <div style={{
-                    position: 'absolute', top: cfg.w * 0.15, left: 0,
-                    width: '100%', height: cfg.h,
-                    background: cfg.base,
-                    zIndex: 2,
-                }}>
-                    {/* Vertical Highlight for 3D Specular effect */}
-                    <div style={{
-                        position: 'absolute', top: 0, left: '20%', width: '15%', height: '100%',
-                        background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent)',
-                    }} />
-                     <div style={{
-                        position: 'absolute', top: 0, right: '10%', width: '10%', height: '100%',
-                        background: 'linear-gradient(90deg, transparent, rgba(0,0,0,0.15), transparent)',
-                    }} />
-                </div>
-
-                {/* Bottom Ellipse (The Curved Base) */}
-                <div style={{
-                    position: 'absolute', top: cfg.h, left: 0,
-                    width: '100%', height: cfg.w * 0.3,
-                    background: cfg.bottom,
-                    borderRadius: '50%',
-                    zIndex: 1,
-                }} />
-            </div>
-            
-            {/* ── Ground Glow ── */}
-            <div style={{
-                position: 'absolute', bottom: -10, left: '50%',
-                transform: 'translateX(-50%)',
-                width: cfg.w * 1.5, height: 20,
-                background: `radial-gradient(ellipse, ${cfg.glow} 0%, transparent 70%)`,
-                zIndex: 0,
-            }} />
-        </div>
-    );
-};
-
-
-/* ── 3D Model ── */
-function StudentModel() {
-    const { scene } = useGLTF('/models/ai_aesthetic_apocalypse.glb');
-    const ref = useRef();
-    useFrame((state) => {
-        if (ref.current) {
-            ref.current.position.y = Math.sin(state.clock.elapsedTime * 1.5) * 0.05 - 2.6;
-        }
-    });
-    return (
-        <group ref={ref} dispose={null} scale={2.2} position={[0, -2.6, 0]}>
-            <primitive object={scene} />
-        </group>
-    );
-}
-
-/* ══ MAIN COMPONENT ══ */
 export default function RaceLeaderboard({ user }) {
     const [racers, setRacers] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [selectedStudentId, setSelectedStudentId] = useState(null);
     const intervalRef = useRef(null);
 
     const fetchLeaderboard = async () => {
@@ -298,295 +95,452 @@ export default function RaceLeaderboard({ user }) {
         return () => clearInterval(intervalRef.current);
     }, []);
 
-    const yourData = racers.find(r => r.rollNumber === user?.rollNumber);
-
-    useEffect(() => {
-        if (!selectedStudentId && yourData) setSelectedStudentId(yourData.rollNumber);
-        else if (!selectedStudentId && racers.length > 0) setSelectedStudentId(racers[0].rollNumber);
-    }, [racers, selectedStudentId, yourData]);
-
     if (loading) return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '40px 24px' }}>
-            {[0, 0.1, 0.2, 0.3, 0.4].map((d, i) => <SkeletonRow key={i} delay={d} />)}
+        <div style={{ 
+            display: 'flex', 
+            flexDirection: 'column', 
+            background: COLORS.card,
+            borderRadius: 16,
+            boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+            overflow: 'hidden',
+        }}>
+            {[...Array(8)].map((_, i) => <SkeletonRow key={i} />)}
         </div>
     );
-
-    const top3 = racers.slice(0, 3);
-    const restOfStudents = racers.slice(3);
-    const selectedStudentData = racers.find(r => r.rollNumber === selectedStudentId) || racers[0];
-    const selectedStudentRank = racers.findIndex(r => r.rollNumber === selectedStudentId) + 1;
 
     return (
         <div style={{
             display: 'flex',
+            flexDirection: 'column',
             flex: 1,
             height: '100%',
             width: '100%',
-            overflow: 'hidden',
-            background: '#f8fafc',
+            background: COLORS.bg,
             fontFamily: 'inherit',
-            position: 'relative',
+            padding: '24px',
+            overflow: 'auto',
         }}>
-            {/* ═══ LEFT COLUMN ═══ */}
+            {/* Header */}
             <div style={{
-                width: '30%',
-                flexShrink: 0,
                 display: 'flex',
-                flexDirection: 'column',
-                borderRight: '1px solid #e5e7eb',
-                background: 'transparent',
-                overflow: 'hidden',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: 24,
             }}>
-
-                {/* ── 3D Podium ── */}
-                <div style={{
-                    padding: '28px 16px 16px',
-                    background: 'transparent',
-                    borderBottom: '1px solid #e5e7eb',
-                    flexShrink: 0,
+                <h1 style={{
+                    fontSize: 24,
+                    fontWeight: 700,
+                    color: COLORS.text,
+                    margin: 0,
                 }}>
+                    Leaderboard
+                </h1>
+                
+                <div style={{
+                    display: 'flex',
+                    gap: 12,
+                    alignItems: 'center',
+                }}>
+                    {/* Team Filter */}
                     <div style={{
                         display: 'flex',
-                        justifyContent: 'center',
-                        alignItems: 'flex-end',
-                        gap: 6,
-                        minHeight: 240,
-                        paddingBottom: 8,
+                        alignItems: 'center',
+                        gap: 8,
+                        padding: '8px 16px',
+                        background: COLORS.card,
+                        borderRadius: 8,
+                        border: `1px solid ${COLORS.border}`,
+                        cursor: 'pointer',
                     }}>
-                        {/* Order: 2nd, 1st, 3rd — 1st in center */}
-                        <Podium3D
-                            racer={top3[1]}
-                            pos={2}
-                            isSelected={selectedStudentId === top3[1]?.rollNumber}
-                            onClick={() => top3[1] && setSelectedStudentId(top3[1].rollNumber)}
-                        />
-                        <Podium3D
-                            racer={top3[0]}
-                            pos={1}
-                            isSelected={selectedStudentId === top3[0]?.rollNumber}
-                            onClick={() => top3[0] && setSelectedStudentId(top3[0].rollNumber)}
-                        />
-                        <Podium3D
-                            racer={top3[2]}
-                            pos={3}
-                            isSelected={selectedStudentId === top3[2]?.rollNumber}
-                            onClick={() => top3[2] && setSelectedStudentId(top3[2].rollNumber)}
-                        />
+                        <div style={{
+                            width: 24,
+                            height: 24,
+                            borderRadius: '50%',
+                            background: COLORS.brand,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: '#fff',
+                            fontSize: 12,
+                            fontWeight: 700,
+                        }}>
+                            A
+                        </div>
+                        <span style={{ fontSize: 14, fontWeight: 500, color: COLORS.text }}>All Teams</span>
+                        <ChevronDown size={16} color={COLORS.textMuted} />
                     </div>
+
+                    {/* Date Range */}
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 12,
+                        padding: '8px 16px',
+                        background: COLORS.card,
+                        borderRadius: 8,
+                        border: `1px solid ${COLORS.border}`,
+                    }}>
+                        <button style={{ 
+                            background: 'none', 
+                            border: 'none', 
+                            cursor: 'pointer',
+                            padding: 4,
+                        }}>
+                            <ChevronUp size={16} color={COLORS.textMuted} />
+                        </button>
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 8,
+                            fontSize: 14,
+                            fontWeight: 500,
+                            color: COLORS.text,
+                        }}>
+                            <Calendar size={16} color={COLORS.textMuted} />
+                            Dec 27, 2022 - Jan 03, 2023
+                        </div>
+                        <button style={{ 
+                            background: 'none', 
+                            border: 'none', 
+                            cursor: 'pointer',
+                            padding: 4,
+                        }}>
+                            <ChevronDown size={16} color={COLORS.textMuted} />
+                        </button>
+                    </div>
+
+                    {/* Avatars */}
+                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                        {racers.slice(0, 3).map((racer, idx) => (
+                            <div
+                                key={racer.rollNumber}
+                                style={{
+                                    width: 32,
+                                    height: 32,
+                                    borderRadius: '50%',
+                                    background: AVATAR_PALETTE[idx % AVATAR_PALETTE.length],
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    color: '#fff',
+                                    fontSize: 11,
+                                    fontWeight: 700,
+                                    marginLeft: idx > 0 ? -8 : 0,
+                                    border: `2px solid ${COLORS.card}`,
+                                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                                }}
+                            >
+                                {getInitials(racer.name)}
+                            </div>
+                        ))}
+                        {racers.length > 3 && (
+                            <div style={{
+                                width: 32,
+                                height: 32,
+                                borderRadius: '50%',
+                                background: COLORS.bg,
+                                border: `1px solid ${COLORS.border}`,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: 11,
+                                fontWeight: 600,
+                                color: COLORS.textMuted,
+                                marginLeft: -8,
+                            }}>
+                                +{racers.length - 3}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Add Members Button */}
+                    <button style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        padding: '8px 16px',
+                        background: COLORS.brandLight,
+                        border: `1px solid ${COLORS.brand}`,
+                        borderRadius: 8,
+                        cursor: 'pointer',
+                        color: COLORS.brand,
+                        fontSize: 14,
+                        fontWeight: 600,
+                        transition: 'all 0.2s',
+                    }}
+                    onMouseEnter={(e) => {
+                        e.target.style.background = COLORS.brand;
+                        e.target.style.color = '#fff';
+                    }}
+                    onMouseLeave={(e) => {
+                        e.target.style.background = COLORS.brandLight;
+                        e.target.style.color = COLORS.brand;
+                    }}
+                    >
+                        <Plus size={16} />
+                        Add members
+                    </button>
+                </div>
+            </div>
+
+            {/* Table Container */}
+            <div style={{
+                background: COLORS.card,
+                borderRadius: 12,
+                border: `1px solid ${COLORS.border}`,
+                overflow: 'hidden',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+            }}>
+                {/* Table Header */}
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: '14px 20px',
+                    background: COLORS.bg,
+                    borderBottom: `1px solid ${COLORS.border}`,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: COLORS.textMuted,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
+                }}>
+                    <div style={{ width: 80, display: 'flex', alignItems: 'center', gap: 4 }}>
+                        Positions
+                    </div>
+                    <div style={{ width: 200, display: 'flex', alignItems: 'center', gap: 4 }}>
+                        Name
+                    </div>
+                    <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', paddingRight: 24 }}>
+                        <div style={{ width: 100, textAlign: 'right' }}>Score</div>
+                    </div>
+                    <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', paddingRight: 24 }}>
+                        <div style={{ width: 100, textAlign: 'right' }}>Points</div>
+                    </div>
+                    <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', paddingRight: 24 }}>
+                        <div style={{ width: 100, textAlign: 'right' }}>Steps</div>
+                    </div>
+                    <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', paddingRight: 24 }}>
+                        <div style={{ width: 100, textAlign: 'right' }}>Flags</div>
+                    </div>
+                    <div style={{ width: 40 }} />
                 </div>
 
-                {/* ── Scrollable List ── */}
-                <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', background: 'transparent' }}>
-                    {restOfStudents.length === 0 && (
-                        <div style={{ padding: 24, textAlign: 'center', color: COLORS.textFaint, fontSize: 13 }}>
-                            No other racers yet
-                        </div>
-                    )}
-                    <AnimatePresence>
-                        {restOfStudents.map((racer, idx) => {
-                            const isSelected = selectedStudentId === racer.rollNumber;
-                            const avatarColor = AVATAR_PALETTE[(idx + 3) % AVATAR_PALETTE.length];
+                {/* Table Body */}
+                <AnimatePresence>
+                    {racers.map((racer, idx) => {
+                        const avatarColor = AVATAR_PALETTE[idx % AVATAR_PALETTE.length];
+                        const prevRank = racer.prevRank || idx + 1;
+                        const rankChange = prevRank - (idx + 1);
+                        
+                        return (
+                            <motion.div
+                                key={racer.rollNumber}
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                transition={{ delay: idx * 0.03 }}
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    padding: '16px 20px',
+                                    borderBottom: `1px solid ${COLORS.border}`,
+                                    background: racer.rollNumber === user?.rollNumber ? COLORS.brandLight : 'transparent',
+                                    transition: 'background 0.2s',
+                                    cursor: 'pointer',
+                                }}
+                                whileHover={{ background: COLORS.bg }}
+                            >
+                                {/* Position */}
+                                <div style={{ width: 80, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <span style={{
+                                        fontSize: 14,
+                                        fontWeight: 700,
+                                        color: COLORS.text,
+                                        width: 24,
+                                    }}>
+                                        #{idx + 1}
+                                    </span>
+                                    {rankChange > 0 ? (
+                                        <div style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            color: COLORS.green,
+                                            background: `${COLORS.green}15`,
+                                            padding: '2px 6px',
+                                            borderRadius: 4,
+                                            fontSize: 11,
+                                            fontWeight: 700,
+                                        }}>
+                                            <ChevronUp size={12} />
+                                            {rankChange}
+                                        </div>
+                                    ) : rankChange < 0 ? (
+                                        <div style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            color: COLORS.red,
+                                            background: `${COLORS.red}15`,
+                                            padding: '2px 6px',
+                                            borderRadius: 4,
+                                            fontSize: 11,
+                                            fontWeight: 700,
+                                        }}>
+                                            <ChevronDown size={12} />
+                                            {Math.abs(rankChange)}
+                                        </div>
+                                    ) : (
+                                        <div style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            color: COLORS.textMuted,
+                                            background: `${COLORS.textMuted}15`,
+                                            padding: '2px 6px',
+                                            borderRadius: 4,
+                                            fontSize: 11,
+                                            fontWeight: 700,
+                                        }}>
+                                            <Minus size={12} />
+                                        </div>
+                                    )}
+                                </div>
 
-                            return (
-                                <motion.div
-                                    key={racer.rollNumber}
-                                    layout
-                                    initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
-                                    onClick={() => setSelectedStudentId(racer.rollNumber)}
-                                    style={{
-                                        display: 'flex', alignItems: 'center', gap: 12, padding: '13px 16px',
-                                        background: isSelected ? '#eff6ff' : 'transparent',
-                                        borderBottom: `1px solid ${COLORS.border}`,
-                                        borderLeft: `4px solid ${isSelected ? COLORS.brand : 'transparent'}`,
-                                        cursor: 'pointer', transition: 'background 0.2s',
-                                    }}
-                                    whileHover={{ background: isSelected ? COLORS.brandLight : '#f8fafc' }}
-                                >
-                                    <div style={{ fontSize: 12, fontWeight: 800, color: COLORS.textFaint, width: 24, flexShrink: 0 }}>
-                                        #{idx + 4}
-                                    </div>
+                                {/* Name & Avatar */}
+                                <div style={{ width: 200, display: 'flex', alignItems: 'center', gap: 12 }}>
                                     <div style={{
-                                        width: 34, height: 34, borderRadius: '50%', flexShrink: 0,
-                                        background: avatarColor, display: 'flex', alignItems: 'center',
-                                        justifyContent: 'center', fontSize: 12, fontWeight: 800,
-                                        color: '#fff', boxShadow: `0 3px 8px ${avatarColor}44`,
+                                        width: 36,
+                                        height: 36,
+                                        borderRadius: '50%',
+                                        background: avatarColor,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        color: '#fff',
+                                        fontSize: 13,
+                                        fontWeight: 700,
+                                        boxShadow: `0 2px 8px ${avatarColor}44`,
                                     }}>
                                         {getInitials(racer.name)}
                                     </div>
-                                    <div style={{ flex: 1, overflow: 'hidden' }}>
+                                    <div>
                                         <div style={{
-                                            fontSize: 14, fontWeight: 700,
-                                            color: isSelected ? COLORS.brand : COLORS.text,
-                                            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                                            fontSize: 14,
+                                            fontWeight: 700,
+                                            color: racer.rollNumber === user?.rollNumber ? COLORS.brand : COLORS.text,
                                         }}>
-                                            {racer.name?.split(' ')[0]}
+                                            {racer.name}
+                                        </div>
+                                        <div style={{
+                                            fontSize: 12,
+                                            color: COLORS.textMuted,
+                                            marginTop: 2,
+                                        }}>
+                                            Roll: {racer.rollNumber}
                                         </div>
                                     </div>
-                                    <div style={{ fontSize: 14, fontWeight: 900, color: COLORS.text, flexShrink: 0 }}>
+                                </div>
+
+                                {/* Stats */}
+                                <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', paddingRight: 24 }}>
+                                    <div style={{
+                                        width: 100,
+                                        textAlign: 'right',
+                                        fontSize: 14,
+                                        fontWeight: 700,
+                                        color: racer.rollNumber === user?.rollNumber ? COLORS.brand : COLORS.text,
+                                    }}>
                                         {racer.scorePercent}%
                                     </div>
-                                </motion.div>
-                            );
-                        })}
-                    </AnimatePresence>
-                </div>
+                                </div>
+                                <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', paddingRight: 24 }}>
+                                    <div style={{
+                                        width: 100,
+                                        textAlign: 'right',
+                                        fontSize: 14,
+                                        fontWeight: 700,
+                                        color: COLORS.text,
+                                    }}>
+                                        {racer.netScore}
+                                    </div>
+                                </div>
+                                <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', paddingRight: 24 }}>
+                                    <div style={{
+                                        width: 100,
+                                        textAlign: 'right',
+                                        fontSize: 14,
+                                        fontWeight: 600,
+                                        color: COLORS.green,
+                                    }}>
+                                        {racer.stepsCompleted}/{TOTAL_STEPS}
+                                    </div>
+                                </div>
+                                <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', paddingRight: 24 }}>
+                                    <div style={{
+                                        width: 100,
+                                        textAlign: 'right',
+                                        fontSize: 14,
+                                        fontWeight: 600,
+                                        color: racer.rejectionCount > 0 ? COLORS.red : COLORS.textMuted,
+                                    }}>
+                                        {racer.rejectionCount}
+                                    </div>
+                                </div>
+
+                                {/* Menu Dots */}
+                                <div style={{
+                                    width: 40,
+                                    display: 'flex',
+                                    justifyContent: 'center',
+                                    cursor: 'pointer',
+                                    opacity: 0,
+                                    transition: 'opacity 0.2s',
+                                }}
+                                onMouseEnter={(e) => e.currentTarget.style.opacity = 1}
+                                onMouseLeave={(e) => e.currentTarget.style.opacity = 0}
+                                >
+                                    <div style={{
+                                        display: 'flex',
+                                        gap: 4,
+                                        padding: '4px 8px',
+                                        borderRadius: 4,
+                                        background: COLORS.bg,
+                                    }}>
+                                        <div style={{ width: 4, height: 4, borderRadius: '50%', background: COLORS.textMuted }} />
+                                        <div style={{ width: 4, height: 4, borderRadius: '50%', background: COLORS.textMuted }} />
+                                        <div style={{ width: 4, height: 4, borderRadius: '50%', background: COLORS.textMuted }} />
+                                    </div>
+                                </div>
+                            </motion.div>
+                        );
+                    })}
+                </AnimatePresence>
             </div>
 
-            {/* ═══ RIGHT PANEL — Full Screen 3D Viewer ═══ */}
+            {/* Footer Info */}
             <div style={{
-                flex: 1,
-                position: 'relative',
-                overflow: 'hidden',
-                background: 'transparent',
+                marginTop: 16,
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                fontSize: 13,
+                color: COLORS.textMuted,
             }}>
-                {/* ── Name subtitle + Rank title at top center ── */}
-                {selectedStudentData && (
-                    <div style={{
-                        position: 'absolute', top: 0, left: 0, right: 0,
-                        textAlign: 'center', zIndex: 20, pointerEvents: 'none',
-                        paddingTop: 20,
-                    }}>
-                        <AnimatePresence mode="wait">
-                            <motion.p
-                                key={`sub-${selectedStudentData.rollNumber}`}
-                                initial={{ opacity: 0, y: -12 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: -8 }}
-                                transition={{ duration: 0.35 }}
-                                style={{
-                                    margin: 0,
-                                    fontSize: 16,
-                                    fontWeight: 600,
-                                    color: '#374151',
-                                    letterSpacing: '-0.01em',
-                                    lineHeight: 1,
-                                    textShadow: '0 1px 8px rgba(255,255,255,0.9), 0 0 20px rgba(255,255,255,0.6)',
-                                }}
-                            >
-                                {selectedStudentData.name ?? '—'}
-                            </motion.p>
-                        </AnimatePresence>
-
-                        <AnimatePresence mode="wait">
-                            <motion.h2
-                                key={`rank-${selectedStudentData.rollNumber}`}
-                                initial={{ opacity: 0, scale: 0.85 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                exit={{ opacity: 0, scale: 0.9 }}
-                                transition={{ duration: 0.35, delay: 0.06 }}
-                                style={{
-                                    margin: '6px 0 0',
-                                    fontSize: 22,
-                                    fontWeight: 900,
-                                    color: COLORS.brand,
-                                    letterSpacing: '-0.025em',
-                                    lineHeight: 1,
-                                    textShadow: '0 2px 12px rgba(255,255,255,0.95), 0 0 30px rgba(37,99,235,0.15)',
-                                }}
-                            >
-                                Rank #{selectedStudentRank}
-                            </motion.h2>
-                        </AnimatePresence>
+                <div>
+                    Showing {racers.length} racer{racers.length !== 1 ? 's' : ''}
+                </div>
+                <div style={{
+                    display: 'flex',
+                    gap: 16,
+                    alignItems: 'center',
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <div style={{ width: 12, height: 12, borderRadius: '50%', background: COLORS.green }} />
+                        <span>Improving</span>
                     </div>
-                )}
-
-                {/* ── Left side buttons: Score (top) + Roll No (bottom) ── */}
-                {selectedStudentData && (
-                    <div style={{
-                        position: 'absolute',
-                        left: 28,
-                        top: '50%',
-                        transform: 'translateY(-50%)',
-                        zIndex: 20,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: 14,
-                        alignItems: 'flex-start',
-                    }}>
-                        <AnimatedStatButton
-                            label="Score"
-                            value={`${selectedStudentData.scorePercent}%`}
-                            color={COLORS.brand}
-                            icon={<TrendingUp size={15} color={COLORS.textMuted} />}
-                        />
-                        <AnimatedStatButton
-                            label="Points"
-                            value={selectedStudentData.netScore}
-                            color={COLORS.amber}
-                            icon={<Award size={15} color={COLORS.textMuted} />}
-                        />
-                        <AnimatedStatButton
-                            label="Roll No"
-                            value={selectedStudentData.rollNumber}
-                            color={COLORS.indigo}
-                            icon={<Hash size={15} color={COLORS.textMuted} />}
-                        />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <div style={{ width: 12, height: 12, borderRadius: '50%', background: COLORS.red }} />
+                        <span>Declining</span>
                     </div>
-                )}
-
-                {/* ── Right side buttons: Steps + Flags ── */}
-                {selectedStudentData && (
-                    <div style={{
-                        position: 'absolute',
-                        right: 28,
-                        top: '50%',
-                        transform: 'translateY(-50%)',
-                        zIndex: 20,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: 14,
-                        alignItems: 'flex-end',
-                    }}>
-                        <AnimatedStatButton
-                            label="Steps"
-                            value={`${selectedStudentData.stepsCompleted}/${TOTAL_STEPS}`}
-                            color={COLORS.green}
-                            icon={<Zap size={15} color={COLORS.textMuted} />}
-                        />
-                        <AnimatedStatButton
-                            label="Flags"
-                            value={selectedStudentData.rejectionCount}
-                            color={COLORS.red}
-                            icon={<AlertCircle size={15} color={COLORS.textMuted} />}
-                        />
-                    </div>
-                )}
-
-                {/* ── Full Screen Canvas ── */}
-                <div style={{ position: 'absolute', inset: 0, top: 80, zIndex: 5 }}>
-                    <Canvas camera={{ position: [0, 1, 6], fov: 45 }}>
-                        <ambientLight intensity={0.7} />
-                        <spotLight position={[10, 10, 10]} angle={0.2} penumbra={1} intensity={1.8} castShadow />
-                        <spotLight position={[-10, 10, -10]} angle={0.2} penumbra={1} intensity={0.5} />
-                        <Environment preset="city" />
-                        <Suspense fallback={null}>
-                            <StudentModel />
-                            <ContactShadows resolution={1024} scale={20} blur={2.5} opacity={0.5} far={10} color="#000000" />
-                        </Suspense>
-                        <OrbitControls
-                            enableZoom={false}
-                            enablePan={false}
-                            autoRotate
-                            autoRotateSpeed={1.5}
-                            maxPolarAngle={Math.PI / 2 + 0.1}
-                            minPolarAngle={Math.PI / 3}
-                        />
-                    </Canvas>
                 </div>
             </div>
-
-            <style>{`
-                @keyframes skeletonPulse { 0%{opacity:0.5} 100%{opacity:0.9} }
-                @keyframes floatRacer {
-                    0% { transform: translateY(0px); }
-                    50% { transform: translateY(-8px); }
-                    100% { transform: translateY(0px); }
-                }
-                ::-webkit-scrollbar { width: 5px; }
-                ::-webkit-scrollbar-track { background: transparent; }
-                ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-                ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-            `}</style>
         </div>
     );
 }
