@@ -2,12 +2,9 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowRight, AlertCircle, Loader2, Sparkles } from 'lucide-react';
 import { STUDENTS } from '../students';
-import LottieLib from 'lottie-react';
+import Lottie from 'lottie-react';
 import girlStudyingData from '../../Girl Studying on Laptop..json';
 import emptyBoxData from '../../Empty Box.json';
-
-// lottie-react may come through as a CJS-wrapped object in Vite ESM mode
-const Lottie = LottieLib?.default ?? LottieLib;
 
 export default function RollNumberEntry({ user, onConfirm }) {
   const [input, setInput] = useState('');

@@ -4,13 +4,10 @@ import { useState, useEffect } from 'react';
 import { GoogleLogin } from '@react-oauth/google';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Shield } from 'lucide-react';
-import LottieLib from 'lottie-react';
+import Lottie from 'lottie-react';
 import axios from 'axios';
 import animationData from '../../data.json';
 import emptyBoxData from '../../Empty Box.json';
-
-// lottie-react may come through as a CJS-wrapped object in Vite ESM mode
-const Lottie = LottieLib?.default ?? LottieLib;
 
 export default function Login({ onLoginSuccess }) {
     const [error, setError] = useState(null);

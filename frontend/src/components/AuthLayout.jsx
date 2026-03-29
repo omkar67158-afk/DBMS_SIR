@@ -1,8 +1,5 @@
 import { motion } from 'framer-motion';
-import LottieLib from 'lottie-react';
-import animationData from '../../data.json';
-
-const Lottie = LottieLib?.default ?? LottieLib;
+import Lottie from 'lottie-react';
 
 export default function AuthLayout({ children }) {
     return (
