@@ -1,0 +1,18 @@
+commit dc4abd4663b5721c46a63240b5125394710b35d3
+Author: Dhairyashil Shinde <your-github-email@domain.com>
+Date:   Sun Mar 29 01:55:24 2026 +0530
+
+    friendly Groq API limit message, no penalty
+
+diff --git a/frontend/src/App.jsx b/frontend/src/App.jsx
+index ba002eb..5b4cba7 100644
+--- a/frontend/src/App.jsx
++++ b/frontend/src/App.jsx
+@@ -6,6 +6,7 @@ import AuthLayout from './components/AuthLayout';
+ import { courseQuestions } from './content';
+ import RaceLeaderboard from './components/RaceLeaderboard';
+ import AdminDashboard from './components/AdminDashboard';
++import Certificate from './components/Certificate';
+ import { LogOut, Zap, Trophy, BookOpen, CheckCircle2, Lock, ChevronRight } from 'lucide-react';
+ import { motion, AnimatePresence } from 'framer-motion';
+ import axios from 'axios';

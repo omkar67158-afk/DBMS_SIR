@@ -13,14 +13,7 @@ import axios from 'axios';
 import './index.css';
 
 // ── Lazy load the heavy 564KB Lottie payload & engine completely off the main thread ──
-const AsyncLottie = lazy(async () => {
-    const animationData = await import('../Untitled file.json');
-    const LottieLib = await import('lottie-react');
-    const Lottie = LottieLib.default ?? LottieLib;
-    return {
-        default: (props) => <Lottie animationData={animationData.default} {...props} />
-    };
-});
+const AsyncLottie = lazy(() => import('./components/LazyLottie'));
 
 function App() {
   const [user, setUser] = useState(null);
