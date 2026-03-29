@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import LottieModule from 'lottie-react';
 const Lottie = typeof LottieModule === 'function' ? LottieModule : LottieModule?.default?.default || LottieModule?.default || LottieModule;
+import animationData from '../../data.json';
 
 export default function AuthLayout({ children }) {
     return (
@@ -8,7 +9,7 @@ export default function AuthLayout({ children }) {
             {/* ── MAIN LAYOUT ── */}
             <div className="auth-layout">
                 {/* LEFT — Lottie Animation */}
-                <motion.div 
+                <motion.div
                     className="auth-lottie-panel"
                     initial={{ scale: 0.8, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
