@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
-import Lottie from 'lottie-react';
+import LottieModule from 'lottie-react';
+const Lottie = typeof LottieModule === 'function' ? LottieModule : LottieModule?.default?.default || LottieModule?.default || LottieModule;
 
 export default function AuthLayout({ children }) {
     return (

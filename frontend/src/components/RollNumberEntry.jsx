@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowRight, AlertCircle, Loader2, Sparkles } from 'lucide-react';
 import { STUDENTS } from '../students';
-import Lottie from 'lottie-react';
+import LottieModule from 'lottie-react';
+const Lottie = typeof LottieModule === 'function' ? LottieModule : LottieModule?.default?.default || LottieModule?.default || LottieModule;
 import girlStudyingData from '../../Girl Studying on Laptop..json';
 import emptyBoxData from '../../Empty Box.json';
 
