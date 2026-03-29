@@ -221,10 +221,10 @@ function App() {
                     <div style={{ textAlign: 'center' }}>
                       <div style={{ 
                         width: '56px', height: '56px', borderRadius: '50%', 
-                        background: 'linear-gradient(135deg, #5b3ef0, #7c5cfc)',
+                        background: 'linear-gradient(135deg, #6C63FF, #5A54E8)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         fontSize: '22px', fontWeight: '800', color: '#fff', margin: '0 auto 12px',
-                        boxShadow: '0 4px 12px rgba(91,62,240,0.3)'
+                        boxShadow: '0 4px 12px rgba(108,99,255,0.3)'
                       }}>
                         {initials}
                       </div>
@@ -349,10 +349,10 @@ function App() {
                   <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '1px', background: 'linear-gradient(90deg, transparent, rgba(91,62,240,0.25), transparent)' }} />
                   <div style={{
                     width: '38px', height: '38px', borderRadius: '50%', flexShrink: 0,
-                    background: 'linear-gradient(135deg, #5b3ef0, #7c5cfc)',
+                    background: 'linear-gradient(135deg, #6C63FF, #5A54E8)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     fontSize: '14px', fontWeight: '700', color: '#fff',
-                    boxShadow: '0 0 10px rgba(91,62,240,0.25)',
+                    boxShadow: '0 0 10px rgba(108,99,255,0.3)',
                   }}>
                     {initials}
                   </div>
@@ -376,7 +376,7 @@ function App() {
               <div style={{ height: '3px', borderRadius: '99px', background: 'var(--surface-3)', marginBottom: '14px', overflow: 'hidden' }}>
                 <div style={{
                   height: '100%', borderRadius: '99px',
-                  background: 'linear-gradient(90deg, #5b3ef0, #0da271)',
+                  background: 'linear-gradient(90deg, #6C63FF, #5A54E8)',
                   width: `${progressPct}%`,
                   transition: 'width 0.8s cubic-bezier(.4,0,.2,1)',
                 }} />
@@ -392,26 +392,31 @@ function App() {
                   const subtitle = q.title?.split(': ')[1] || q.title || q.question?.slice(0, 32) + '…';
 
                   return (
-                    <div
+                    <motion.div
                       key={q.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.3, delay: q.id * 0.03 }}
                       onClick={() => {
                         if (!isLocked) setViewingStep(q.id);
                       }}
                       style={{
                         display: 'flex', alignItems: 'center', gap: '10px',
-                        padding: '9px 12px', borderRadius: '10px', cursor: isLocked ? 'default' : 'pointer',
+                        padding: '9px 12px', borderRadius: '8px', cursor: isLocked ? 'default' : 'pointer',
                         background: isActive
-                          ? 'rgba(124,92,252,0.1)'
+                          ? 'linear-gradient(90deg, rgba(108,99,255,0.1), transparent)'
                           : isDone
                             ? 'rgba(20,217,151,0.04)'
                             : 'transparent',
-                        border: isActive
-                          ? '1px solid rgba(124,92,252,0.25)'
+                        border: '1px solid rgba(0,0,0,0.02)',
+                        borderLeft: isActive
+                          ? '3px solid #6C63FF'
                           : isDone
-                            ? '1px solid rgba(20,217,151,0.12)'
-                            : '1px solid transparent',
+                            ? '3px solid transparent'
+                            : '3px solid transparent',
                         opacity: isLocked ? 0.38 : 1,
                         transition: 'all 0.2s',
+                        marginBottom: '4px'
                       }}
                     >
                       {/* Step indicator */}
@@ -421,17 +426,17 @@ function App() {
                         background: isDone
                           ? 'var(--green)'
                           : isActive
-                            ? 'var(--brand)'
+                            ? '#6C63FF'
                             : 'var(--surface-3)',
                         border: isDone
                           ? 'none'
                           : isActive
                             ? 'none'
-                            : '1px solid var(--border-hi)',
+                            : '1px solid rgba(0,0,0,0.08)',
                         boxShadow: isDone
                           ? '0 0 6px rgba(13,162,113,0.3)'
                           : isActive
-                            ? '0 0 8px rgba(91,62,240,0.3)'
+                            ? '0 0 8px rgba(108,99,255,0.4)'
                             : 'none',
                         fontSize: '10px', fontWeight: '700',
                         color: isDone ? '#fff' : isActive ? '#fff' : 'var(--txt-faint)',
@@ -460,8 +465,8 @@ function App() {
                         )}
                       </div>
 
-                      {isActive && <ChevronRight size={13} color="var(--brand)" style={{ flexShrink: 0 }} />}
-                    </div>
+                      {isActive && <ChevronRight size={13} color="#6C63FF" style={{ flexShrink: 0 }} />}
+                    </motion.div>
                   );
                 })}
               </div>
@@ -525,14 +530,14 @@ function App() {
 
             {/* ══════ RIGHT LOTTIE PANEL ══════ */}
             <AnimatePresence>
-              {activeTab !== 'race' && (
+              {activeTab !== 'race' && currentStep <= total && (
                 <motion.div 
                     className="auth-lottie-panel"
                     initial={{ y: 50, opacity: 0, width: 0 }}
                     animate={{ y: 0, opacity: 1, width: 450 }}
                     exit={{ y: 200, opacity: 0, width: 0 }}
                     transition={{ duration: 0.5, ease: [0.32, 0.72, 0, 1] }}
-                    style={{ flexShrink: 0, borderLeft: 'none', padding: 0, display: 'flex', justifyContent: 'flex-end', overflow: 'hidden' }}
+                    style={{ flexShrink: 0, borderLeft: 'none', padding: 0, display: 'flex', justifyContent: 'flex-end', overflow: 'hidden', background: '#ffffff' }}
                 >
                     <div style={{ width: '450px', height: '100%' }}>
                       <Suspense fallback={null}>

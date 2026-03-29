@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   CheckCircle2, UploadCloud, Award, Loader2, Info, XCircle,
-  ArrowRight, ArrowLeft, ScanLine, BrainCircuit, ImagePlus, Sparkles
+  ArrowRight, ArrowLeft, ScanLine, BrainCircuit, ImagePlus, Sparkles, AlertTriangle
 } from 'lucide-react';
 import { courseQuestions } from '../content';
 import axios from 'axios';
@@ -107,14 +107,14 @@ export default function StepWizard({ user, refreshUser, maxStep, dashPhase = 3 }
             <Sparkles size={10} />
             STEP {q.id} OF {total}
           </div>
-          <div style={{ flex: 1, height: '5px', borderRadius: '99px', background: 'var(--surface-2)', overflow: 'hidden' }}>
+          <div style={{ flex: 1, height: '6px', borderRadius: '10px', background: 'var(--surface-2)', overflow: 'hidden' }}>
             <motion.div
               initial={{ width: 0 }}
               animate={{ width: `${pct}%` }}
               transition={{ duration: 0.9, ease: [.4, 0, .2, 1], delay: 0.2 }}
               style={{
-                height: '100%', borderRadius: '99px',
-                background: 'linear-gradient(90deg, #5b3ef0, #7c5cfc)',
+                height: '100%', borderRadius: '10px',
+                background: 'linear-gradient(90deg, #6C63FF, #00C9A7)',
               }}
             />
           </div>
@@ -126,14 +126,14 @@ export default function StepWizard({ user, refreshUser, maxStep, dashPhase = 3 }
            <>
              {/* ── Question ── */}
              <div style={{ marginBottom: '32px' }}>
-               <h1 style={{ fontSize: '28px', fontWeight: '800', lineHeight: 1.3, letterSpacing: '-0.03em', color: 'var(--txt)', margin: '0 0 10px', maxWidth: '680px', minHeight: '36px' }}>
+               <h1 style={{ fontSize: '26px', fontWeight: '800', lineHeight: 1.3, letterSpacing: '-0.02em', color: 'var(--txt)', margin: '0 0 10px', maxWidth: '680px', minHeight: '36px' }}>
                  {dashPhase >= 1 && q.question.split("").map((c, i) => (
                    <motion.span key={`q-${i}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: dashPhase === 1 ? i * 0.02 : 0 }}>
                      {c}
                    </motion.span>
                  ))}
                </h1>
-               <motion.div style={{ fontSize: '15px', color: 'var(--txt-muted)', lineHeight: 1.65, maxWidth: '560px', margin: 0 }}>
+               <motion.div style={{ fontSize: '15px', color: 'var(--txt-muted)', lineHeight: 1.65, fontWeight: '400', maxWidth: '560px', margin: 0 }}>
                  {q.requirement && dashPhase >= 2 && q.requirement.split("").map((c, i) => (
                    <motion.span key={`r1-${i}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: dashPhase === 2 ? i * 0.015 : 0 }}>
                      {c}
@@ -166,14 +166,14 @@ export default function StepWizard({ user, refreshUser, maxStep, dashPhase = 3 }
              <AnimatePresence mode="popLayout">
                {!choice && (
                  <motion.div key="question" exit={{ scale: 1.05, opacity: 0, filter: 'blur(5px)' }} transition={{ duration: 0.3 }} style={{ marginBottom: '32px' }}>
-                    <h1 style={{ fontSize: '28px', fontWeight: '800', lineHeight: 1.3, letterSpacing: '-0.03em', color: 'var(--txt)', margin: '0 0 10px', maxWidth: '680px', minHeight: '36px' }}>
+                    <h1 style={{ fontSize: '26px', fontWeight: '800', lineHeight: 1.3, letterSpacing: '-0.02em', color: 'var(--txt)', margin: '0 0 10px', maxWidth: '680px', minHeight: '36px' }}>
                       {dashPhase >= 1 && q.question.split("").map((c, i) => (
                         <motion.span key={`q-${i}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: dashPhase === 1 ? i * 0.02 : 0 }}>
                           {c}
                         </motion.span>
                       ))}
                     </h1>
-                    <motion.div style={{ fontSize: '15px', color: 'var(--txt-muted)', lineHeight: 1.65, maxWidth: '560px', margin: 0 }}>
+                    <motion.div style={{ fontSize: '15px', color: 'var(--txt-muted)', lineHeight: 1.65, fontWeight: '400', maxWidth: '560px', margin: 0 }}>
                       {q.requirement && dashPhase >= 2 && q.requirement.split("").map((c, i) => (
                         <motion.span key={`r2-${i}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: dashPhase === 2 ? i * 0.015 : 0 }}>
                           {c}
@@ -238,31 +238,31 @@ export default function StepWizard({ user, refreshUser, maxStep, dashPhase = 3 }
               transition={{ duration: 0.25 }}
             >
               <div style={{
-                borderRadius: '18px', overflow: 'hidden',
+                borderRadius: '16px', overflow: 'hidden',
                 background: '#ffffff',
-                border: '1px solid var(--border)',
-                boxShadow: 'var(--shadow-md)',
+                border: '1px solid rgba(0,0,0,0.05)',
+                boxShadow: '0 10px 30px rgba(0,0,0,0.08)',
               }}>
                 {/* Top accent bar */}
-                <div style={{ height: '3px', background: 'linear-gradient(90deg, #5b3ef0, #7c5cfc, #059669)' }} />
+                <div style={{ height: '3px', background: 'linear-gradient(90deg, #6C63FF, #5A54E8, #00C9A7)' }} />
 
                 {/* Card header */}
                 <div style={{
                   padding: '18px 26px 16px',
                   display: 'flex', alignItems: 'center', gap: '14px',
-                  borderBottom: '1px solid var(--border)',
+                  borderBottom: '1px solid rgba(0,0,0,0.05)',
                   background: 'var(--surface)',
                 }}>
                   <div style={{
                     width: '40px', height: '40px', borderRadius: '11px', flexShrink: 0,
-                    background: 'rgba(91,62,240,0.08)', border: '1px solid rgba(91,62,240,0.18)',
+                    background: 'rgba(108,99,255,0.08)', border: '1px solid rgba(108,99,255,0.18)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                   }}>
-                    <UploadCloud size={19} color="var(--brand)" />
+                    <UploadCloud size={19} color="#6C63FF" />
                   </div>
                   <div>
-                    <h3 style={{ margin: '0 0 2px', fontSize: '15px', fontWeight: '700', color: 'var(--txt)' }}>Verification Screenshot</h3>
-                    <p style={{ margin: 0, color: 'var(--txt-muted)', fontSize: '12.5px' }}>
+                    <h3 style={{ margin: '0 0 2px', fontSize: '15px', fontWeight: '600', color: 'var(--txt)' }}>Verification Screenshot</h3>
+                    <p style={{ margin: 0, color: 'var(--txt-muted)', fontSize: '13px', fontWeight: '400' }}>
                       {q.requirement}
                     </p>
                   </div>
@@ -317,31 +317,31 @@ export default function StepWizard({ user, refreshUser, maxStep, dashPhase = 3 }
                   {/* Error */}
                   {error && (
                     <motion.div
-                      initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
+                      initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
                       style={{
-                        color: 'var(--red)', background: 'var(--red-fade)',
-                        border: '1px solid rgba(220,38,38,0.20)', borderRadius: '9px',
-                        padding: '10px 14px', fontSize: '13px', display: 'flex', alignItems: 'center',
-                        gap: '8px', marginBottom: '16px', fontWeight: '500',
+                        color: '#ff4d4f', background: '#fff5f5',
+                        borderLeft: '4px solid #ff4d4f', borderRadius: '10px',
+                        padding: '12px 16px', fontSize: '14px', display: 'flex', alignItems: 'center',
+                        gap: '10px', marginBottom: '16px', fontWeight: '500',
                       }}
                     >
-                      <XCircle size={14} /> {error}
+                      <AlertTriangle size={16} color="#ff4d4f" /> {error}
                     </motion.div>
                   )}
 
                   {/* Submit */}
                   <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                     <motion.button
-                      whileHover={{ y: -1, boxShadow: '0 8px 24px rgba(91,62,240,0.35)' }}
+                      whileHover={{ y: -2, boxShadow: '0 8px 20px rgba(108,99,255,0.3)' }}
                       whileTap={{ scale: 0.97 }}
                       onClick={handleSubmit}
                       style={{
                         display: 'flex', alignItems: 'center', gap: '8px',
                         padding: '11px 26px', fontSize: '14px', fontWeight: '700',
                         borderRadius: '11px', border: 'none', cursor: 'pointer',
-                        background: 'linear-gradient(135deg, #5b3ef0, #7c5cfc)',
-                        color: '#fff', boxShadow: 'var(--shadow-brand)',
-                        transition: 'box-shadow 0.2s',
+                        background: 'linear-gradient(135deg, #6C63FF, #5A54E8)',
+                        color: '#fff', boxShadow: '0 4px 10px rgba(108,99,255,0.2)',
+                        transition: 'all 0.2s ease',
                         minWidth: '160px', justifyContent: 'center',
                       }}
                     >
@@ -360,33 +360,33 @@ export default function StepWizard({ user, refreshUser, maxStep, dashPhase = 3 }
               transition={{ duration: 0.25 }}
             >
               <div style={{
-                borderRadius: '18px', overflow: 'hidden',
+                borderRadius: '16px', overflow: 'hidden',
                 background: '#ffffff',
-                border: '1px solid var(--border)',
-                boxShadow: 'var(--shadow-md)',
+                border: '1px solid rgba(0,0,0,0.05)',
+                boxShadow: '0 10px 30px rgba(0,0,0,0.08)',
                 display: 'flex', flexDirection: 'column',
                 maxHeight: 'calc(100vh - 240px)'
               }}>
-                <div style={{ height: '3px', background: 'linear-gradient(90deg, #5b3ef0, #7c5cfc)', flexShrink: 0 }} />
+                <div style={{ height: '3px', background: 'linear-gradient(90deg, #6C63FF, #5A54E8)', flexShrink: 0 }} />
 
                 {/* Guide header */}
                 <div style={{
                   padding: '18px 26px 16px',
                   display: 'flex', alignItems: 'center', gap: '14px',
-                  borderBottom: '1px solid var(--border)',
+                  borderBottom: '1px solid rgba(0,0,0,0.05)',
                   background: 'var(--surface)',
                   flexShrink: 0
                 }}>
                   <div style={{
                     width: '40px', height: '40px', borderRadius: '11px', flexShrink: 0,
-                    background: 'rgba(91,62,240,0.08)', border: '1px solid rgba(91,62,240,0.18)',
+                    background: 'rgba(108,99,255,0.08)', border: '1px solid rgba(108,99,255,0.18)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                   }}>
-                    <Info size={19} color="var(--brand)" />
+                    <Info size={19} color="#6C63FF" />
                   </div>
                   <div>
-                    <h3 style={{ margin: '0 0 2px', fontSize: '15px', fontWeight: '700', color: 'var(--txt)' }}>Implementation Guide</h3>
-                    <p style={{ margin: 0, fontSize: '12.5px', color: 'var(--txt-muted)' }}>
+                    <h3 style={{ margin: '0 0 2px', fontSize: '15px', fontWeight: '600', color: 'var(--txt)' }}>Implementation Guide</h3>
+                    <p style={{ margin: 0, fontSize: '13px', fontWeight: '400', color: 'var(--txt-muted)' }}>
                       Follow each step carefully, then select <strong style={{ color: 'var(--green)' }}>"Yes, done!"</strong> above to submit proof
                     </p>
                   </div>

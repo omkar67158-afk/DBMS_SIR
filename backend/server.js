@@ -70,7 +70,7 @@ if (process.env.REDIS_URL) {
   // preventing BullMQ jobs from blocking each other on a single OCR instance.
   const scheduler = Tesseract.createScheduler();
   const CONCURRENCY = 3;
-  
+
   (async () => {
     try {
       console.log(`Starting ${CONCURRENCY} Tesseract Workers for parallel processing...`);
@@ -109,7 +109,7 @@ if (process.env.REDIS_URL) {
         const { isDuplicate, reason } = checkDuplicate(newPhash, storedHashes);
         if (isDuplicate) {
           user.ocrStatus = 'REJECTED';
-          user.ocrFeedback = `❌ ${reason}. Your screenshot matches one already submitted for this step.`;
+          user.ocrFeedback = `❌ ${reason}.`;
           user.rejectionCount = (user.rejectionCount || 0) + 1;
           await user.save();
           if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath);
