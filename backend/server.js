@@ -11,9 +11,17 @@ const Tesseract = require('tesseract.js');
 const Groq = require('groq-sdk');
 const { generatePHash, checkDuplicate } = require('./phashUtils');
 
-// ── Rate Limit Rotation System ──
+// groq api requests count starts from 0
 let groqRequestCount = 0;
 let lastRequestTime = Date.now();
+
+// if 1 minute passed reset the count
+const now = Date.now();
+if (now - lastRequestTime > 60000) {
+  groqRequestCount = 0;
+  latestRequestTime = now;
+}
+
 // First key from .env, plus two extra fallback keys for bursts
 const GROQ_KEYS = [
   process.env.GROQ_API_KEY,
@@ -23,7 +31,7 @@ const GROQ_KEYS = [
 
 // Pre-instantiate one Groq client per key — avoids repeated construction on every job
 const groqClients = GROQ_KEYS.map(key => new Groq({ apiKey: key }));
-const groq = groqClients.length > 0 ? true : null;
+const groq = groqClients.length > 0 ? true : null; //if key exists then true otherwise false
 const VERIFICATION_RULES = {
   1: "The screenshot text must clearly show evidence of a file named 'data.csv' or the Kaggle dataset 'Global Data on Sustainable Energy'.",
   2: "The screenshot text must show the output of 'node -v' returning a version number (like v18 or v20) AND/OR 'git --version' returning a version.",
@@ -35,13 +43,31 @@ const VERIFICATION_RULES = {
   8: "The screenshot text must show MongoDB Atlas collections view with documents populated, specifically referencing the 'energy_database' or pipeline collections."
 };
 
-const app = express();
-app.use(cors()); // In production on Render/Vercel, specify exact origins
-app.use(express.json());
+//one user 1request - key one 
+//25 users 25request - key one 
+//30 users 30requests same time -key one(25requests) + key two(5requests)
+//30 users 30requests after 1min interval - key one
 
-const PORT = process.env.PORT || 5000;
-const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID || "YOUR_GOOGLE_CLIENT_ID");
-const JWT_SECRET = process.env.JWT_SECRET || "fallback_super_secret_for_jwt";
+const http = require('http');
+const { Server } = require('socket.io');
+
+const app = express(); // creates backend server interface (our api machine)
+const httpServer = http.createServer(app);
+const io = new Server(httpServer, {
+  cors: {
+    origin: "*", // allow all domains for simplicity or restrict to frontend
+    methods: ["GET", "POST"]
+  }
+});
+app.use(cors()); // allows frontend to backend communication basically browser sends requests to the backend then backend respond with headers(cors) browser checks headers(cors) if allowed then show responce if not allowed then blocks the requesest error - blocked by cors policy
+app.use(express.json()); // allows frontend to send json data to the backend
+
+const PORT = process.env.PORT || 5000; // if its local then use backend port for server else if deployed then uses platform port for that
+//after deployment render provides port for to use backend on server
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID || "YOUR_GOOGLE_CLIENT_ID"); // verifys user login token
+const JWT_SECRET = process.env.JWT_SECRET || "fallback_super_secret_for_jwt"; // used for signing and verifying jwt tokens
+//google login key allows you login at first time only then after that everyday when you load the app it auto login to home page because of jwt key from browser everytime till you sign out
+
 
 // Set up disk storage for background processing
 const fs = require('fs');
@@ -478,6 +504,86 @@ app.get('/api/admin/dashboard', requireAdmin, async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
+// 8. WebSocket for Live Camera
+const userSockets = new Map(); // Map rollNumber/userId -> socketId
+
+io.on('connection', (socket) => {
+  console.log('New client connected:', socket.id);
+
+  // When a user logs in, they register their socket
+  socket.on('register', (data) => {
+    // data should contain { userId, rollNumber }
+    if (data.userId) {
+      userSockets.set(data.userId, socket.id);
+      socket.userId = data.userId; // attach to socket for cleanup
+      console.log(`User registered socket: ${data.userId} -> ${socket.id}`);
+    }
+  });
+
+  socket.on('disconnect', () => {
+    console.log('Client disconnected:', socket.id);
+    if (socket.userId) {
+      userSockets.delete(socket.userId);
+    }
+  });
+
+  // ------- Signaling for WebRTC -------
+  
+  // Admin requests camera from a student
+  socket.on('camera_request', (data) => {
+    // data = { targetUserId, adminId }
+    const targetSocket = userSockets.get(data.targetUserId);
+    if (targetSocket) {
+      io.to(targetSocket).emit('camera_request', { adminSocketId: socket.id, adminId: data.adminId });
+    } else {
+      socket.emit('camera_error', { message: 'Student is not currently online.' });
+    }
+  });
+
+  // Student responds (allow/deny)
+  socket.on('camera_response', (data) => {
+    // data = { adminSocketId, accepted, reason }
+    io.to(data.adminSocketId).emit('camera_response', { 
+      studentSocketId: socket.id, 
+      studentId: socket.userId,
+      accepted: data.accepted,
+      reason: data.reason
+    });
+  });
+
+  // WebRTC Offers, Answers, ICE Candidates
+  socket.on('webrtc_offer', (data) => {
+    // data = { targetSocketId, offer }
+    io.to(data.targetSocketId).emit('webrtc_offer', {
+      senderSocketId: socket.id,
+      offer: data.offer
+    });
+  });
+
+  socket.on('webrtc_answer', (data) => {
+    // data = { targetSocketId, answer }
+    io.to(data.targetSocketId).emit('webrtc_answer', {
+      senderSocketId: socket.id,
+      answer: data.answer
+    });
+  });
+
+  socket.on('webrtc_ice_candidate', (data) => {
+    // data = { targetSocketId, candidate }
+    io.to(data.targetSocketId).emit('webrtc_ice_candidate', {
+      senderSocketId: socket.id,
+      candidate: data.candidate
+    });
+  });
+  
+  // Stop camera signaling
+  socket.on('camera_stop', (data) => {
+    if (data.targetSocketId) {
+      io.to(data.targetSocketId).emit('camera_stop', { senderSocketId: socket.id });
+    }
+  });
+});
+
+httpServer.listen(PORT, () => {
   console.log(`Backend server running on port ${PORT}`);
 });

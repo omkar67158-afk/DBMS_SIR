@@ -11,6 +11,7 @@ import { LogOut, Zap, Trophy, BookOpen, CheckCircle2, Lock, ChevronRight } from 
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import './index.css';
+import StudentCameraHandler from './components/StudentCameraHandler';
 
 // ── Lazy load the heavy 564KB Lottie payload & engine completely off the main thread ──
 const AsyncLottie = lazy(() => import('./components/LazyLottie'));
@@ -143,6 +144,7 @@ function App() {
 
   return (
     <div className="app-shell">
+      <StudentCameraHandler user={user} />
 
       {/* ══════════════ GLOBAL PERSISTENT NAVBAR ══════════════ */}
       <nav className="auth-nav" style={{ zIndex: 10001, width: '100%', justifyContent: 'space-between' }}>

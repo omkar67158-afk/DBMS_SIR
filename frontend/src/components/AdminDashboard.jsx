@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Users, CheckCircle2, Search, Image as ImageIcon, ShieldAlert, LogOut, ZoomIn, X } from 'lucide-react';
+import { Users, CheckCircle2, Search, Image as ImageIcon, ShieldAlert, LogOut, ZoomIn, X, Camera, Video, AlertCircle } from 'lucide-react';
 import axios from 'axios';
 import { courseQuestions } from '../content';
+import socket from '../socket';
 
 export default function AdminDashboard({ onLogout }) {
   const [data, setData] = useState(null);
@@ -10,6 +11,116 @@ export default function AdminDashboard({ onLogout }) {
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const [modalUser, setModalUser] = useState(null);
+
+  const [cameraStatus, setCameraStatus] = useState('idle'); // idle | requesting | active | error
+  const [cameraError, setCameraError] = useState('');
+  
+  const remoteVideoRef = useRef(null);
+  const peerConnectionRef = useRef(null);
+
+  const rtcConfig = {
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' }
+    ]
+  };
+
+  useEffect(() => {
+    socket.connect();
+    
+    const onResponse = (data) => {
+      if (data.accepted) {
+        setCameraStatus('active');
+      } else {
+        setCameraStatus('error');
+        setCameraError(data.reason || 'Student denied access.');
+        setTimeout(() => setCameraStatus('idle'), 5000);
+      }
+    };
+
+    const onError = (data) => {
+      setCameraStatus('error');
+      setCameraError(data.message);
+      setTimeout(() => setCameraStatus('idle'), 5000);
+    };
+
+    const handleOffer = async (data) => {
+      try {
+        const pc = new RTCPeerConnection(rtcConfig);
+        peerConnectionRef.current = pc;
+
+        pc.ontrack = (event) => {
+          if (remoteVideoRef.current && event.streams[0]) {
+            remoteVideoRef.current.srcObject = event.streams[0];
+          }
+        };
+
+        pc.onicecandidate = (event) => {
+          if (event.candidate) {
+            socket.emit('webrtc_ice_candidate', { targetSocketId: data.senderSocketId, candidate: event.candidate });
+          }
+        };
+
+        await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+
+        socket.emit('webrtc_answer', { targetSocketId: data.senderSocketId, answer });
+      } catch (err) {
+        console.error("Admin WebRTC error:", err);
+      }
+    };
+
+    const handleIceCandidate = async (data) => {
+      if (!peerConnectionRef.current) return;
+      try {
+        await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(data.candidate));
+      } catch (err) {
+        console.error("Admin add ice candidate error:", err);
+      }
+    };
+
+    const handleStop = () => {
+      stopCameraConnection();
+    };
+
+    socket.on('camera_response', onResponse);
+    socket.on('camera_error', onError);
+    socket.on('webrtc_offer', handleOffer);
+    socket.on('webrtc_ice_candidate', handleIceCandidate);
+    socket.on('camera_stop', handleStop);
+
+    return () => {
+      socket.off('camera_response', onResponse);
+      socket.off('camera_error', onError);
+      socket.off('webrtc_offer', handleOffer);
+      socket.off('webrtc_ice_candidate', handleIceCandidate);
+      socket.off('camera_stop', handleStop);
+    };
+  }, []);
+
+  const requestCamera = (student) => {
+    setCameraStatus('requesting');
+    setCameraError('');
+    socket.emit('camera_request', { targetUserId: student._id });
+  };
+
+  const stopCameraConnection = () => {
+    if (peerConnectionRef.current) {
+      peerConnectionRef.current.close();
+      peerConnectionRef.current = null;
+    }
+    if (remoteVideoRef.current) {
+      remoteVideoRef.current.srcObject = null;
+    }
+    setCameraStatus('idle');
+  };
+
+  const closeModal = () => {
+    stopCameraConnection();
+    setModalUser(null);
+  };
+
 
   useEffect(() => {
     let interval;
@@ -152,6 +263,7 @@ export default function AdminDashboard({ onLogout }) {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3, delay: i * 0.03 }}
+                onClick={() => setModalUser(u)}
                 style={{
                   background: 'rgba(255,255,255,0.02)',
                   border: '1px solid rgba(255,255,255,0.08)',
@@ -159,8 +271,11 @@ export default function AdminDashboard({ onLogout }) {
                   display: 'flex', flexDirection: 'column', gap: '16px',
                   boxShadow: '0 4px 16px rgba(0,0,0,0.1)',
                   backdropFilter: 'blur(10px)',
-                  position: 'relative', overflow: 'hidden'
+                  position: 'relative', overflow: 'hidden',
+                  cursor: 'pointer'
                 }}
+                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.borderColor = 'rgba(124,92,252,0.4)'; e.currentTarget.style.boxShadow = '0 8px 32px rgba(124,92,252,0.1)'; }}
+                onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.1)'; }}
               >
                 {/* Visual Top Glow */}
                 <div style={{ position: 'absolute', top: 0, left: '20%', right: '20%', height: '1px', background: 'linear-gradient(90deg, transparent, rgba(124,92,252,0.5), transparent)' }} />
@@ -216,19 +331,9 @@ export default function AdminDashboard({ onLogout }) {
                   )}
                 </div>
 
-                {/* Third Row: Evidence Button */}
-                <button 
-                  onClick={() => setModalUser(u)}
-                  style={{ 
-                    marginTop: '4px', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-                    background: 'rgba(255,255,255,0.03)', border: '1px dashed rgba(255,255,255,0.15)',
-                    padding: '8px', borderRadius: '8px', cursor: 'pointer', color: 'var(--txt-muted)', fontSize: '12px', fontWeight: '600', transition: 'all 0.2s'
-                  }}
-                  onMouseEnter={e => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.3)'; e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; }}
-                  onMouseLeave={e => { e.currentTarget.style.color = 'var(--txt-muted)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)'; e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; }}
-                >
-                  <ImageIcon size={14} /> View Evidence ({u.submissions?.length || 0})
-                </button>
+                <div style={{ marginLeft: '12px', background: 'rgba(255,255,255,0.05)', padding: '4px 8px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--txt)', fontSize: '11px', fontWeight: '600' }}>
+                  {u.submissions?.length || 0} FILE{u.submissions?.length !== 1 && 'S'}
+                </div>
 
               </motion.div>
             );
@@ -237,65 +342,172 @@ export default function AdminDashboard({ onLogout }) {
 
       </main>
 
-      {/* ══════════════ EVIDENCE MODAL ══════════════ */}
+      {/* ══════════════ FULL SCREEN STUDENT DETAILS MODAL ══════════════ */}
       <AnimatePresence>
         {modalUser && (
           <motion.div 
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             style={{ 
-              position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px'
+              position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(5,5,7,0.85)', backdropFilter: 'blur(20px)',
+              display: 'flex', padding: '40px'
             }}
-            onClick={() => setModalUser(null)}
+            onClick={closeModal}
           >
             <motion.div 
-              initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+              initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }}
               onClick={e => e.stopPropagation()}
               style={{ 
-                background: '#050507', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '24px', 
-                width: '100%', maxWidth: '900px', maxHeight: '100%', display: 'flex', flexDirection: 'column',
-                boxShadow: '0 24px 48px rgba(0,0,0,0.6)'
+                background: '#0a0a0e', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '32px', 
+                width: '100%', maxWidth: '1400px', margin: '0 auto', display: 'flex', flexDirection: 'column',
+                boxShadow: '0 32px 64px rgba(0,0,0,0.8), inset 0 1px 1px rgba(255,255,255,0.05)',
+                overflow: 'hidden'
               }}
             >
-              <div style={{ padding: '24px 32px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              {/* Header */}
+              <div style={{ padding: '24px 40px', borderBottom: '1px solid rgba(255,255,255,0.08)', background: 'linear-gradient(180deg, rgba(255,255,255,0.03), transparent)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
                   {modalUser.picture ? (
-                    <img src={modalUser.picture} alt="" style={{ width: '40px', height: '40px', borderRadius: '50%' }} />
-                  ) : <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#7c5cfc' }} />}
+                    <img src={modalUser.picture} alt="" style={{ width: '56px', height: '56px', borderRadius: '50%', border: '2px solid rgba(124,92,252,0.4)', boxShadow: '0 0 16px rgba(124,92,252,0.2)' }} />
+                  ) : <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: 'linear-gradient(135deg, #7c5cfc, #a78bfa)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', fontWeight: '800', color: '#fff', border: '2px solid rgba(124,92,252,0.4)', boxShadow: '0 0 16px rgba(124,92,252,0.2)' }}>{modalUser.name.substring(0,2).toUpperCase()}</div>}
                   <div>
-                    <h2 style={{ fontSize: '20px', fontWeight: '800', margin: 0, color: '#fff' }}>{modalUser.name}</h2>
-                    <div style={{ color: 'var(--txt-faint)', fontSize: '13px' }}>{modalUser.rollNumber} • {modalUser.email}</div>
+                    <h1 style={{ fontSize: '28px', fontWeight: '800', margin: 0, color: '#fff', letterSpacing: '-0.02em' }}>{modalUser.name}</h1>
+                    <div style={{ display: 'flex', gap: '12px', color: 'var(--txt-faint)', fontSize: '14px', marginTop: '4px', fontWeight: '500' }}>
+                      <span style={{ color: '#a78bfa' }}>{modalUser.rollNumber}</span>
+                      <span>•</span>
+                      <span>{modalUser.email}</span>
+                      {modalUser.isCompleted && (
+                        <>
+                          <span>•</span>
+                          <span style={{ color: 'var(--green)', display: 'flex', alignItems: 'center', gap: '4px' }}><CheckCircle2 size={14} /> Completed Course</span>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
-                <button onClick={() => setModalUser(null)} style={{ background: 'rgba(255,255,255,0.05)', border: 'none', color: '#fff', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-                  <X size={18} />
+                
+                <button onClick={closeModal} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', borderRadius: '12px', width: '48px', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'} onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}>
+                  <X size={24} />
                 </button>
               </div>
 
-              <div style={{ flex: 1, overflowY: 'auto', padding: '32px' }}>
-                {modalUser.submissions && modalUser.submissions.length > 0 ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                    {modalUser.submissions.map((sub, i) => (
-                      <div key={i} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '16px', overflow: 'hidden' }}>
-                        <div style={{ padding: '14px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <CheckCircle2 size={16} color="var(--green)" />
-                            <span style={{ fontWeight: '700', color: '#fff', fontSize: '14px' }}>Step {sub.stepId} Verification</span>
-                          </div>
-                          <span style={{ color: 'var(--txt-faint)', fontSize: '12px', fontWeight: '500' }}>{new Date(sub.submittedAt).toLocaleString()}</span>
-                        </div>
-                        <div style={{ padding: '24px', display: 'flex', justifyContent: 'center', background: 'rgba(0,0,0,0.5)' }}>
-                          <img src={sub.imageData} alt={`Step ${sub.stepId}`} style={{ maxWidth: '100%', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }} />
-                        </div>
+              {/* Body */}
+              <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+                
+                {/* Left Panel: Camera Stream & Actions */}
+                <div style={{ flex: '0 0 45%', borderRight: '1px solid rgba(255,255,255,0.08)', padding: '40px', display: 'flex', flexDirection: 'column', gap: '32px', background: '#08080c' }}>
+                  
+                  {/* Camera Viewer Box */}
+                  <div style={{ 
+                    flex: 1, border: cameraStatus === 'active' ? '2px solid rgba(20, 217, 151, 0.4)' : '1px solid rgba(255,255,255,0.08)', 
+                    borderRadius: '24px', background: 'rgba(0,0,0,0.6)', display: 'flex', flexDirection: 'column',
+                    overflow: 'hidden', position: 'relative', boxShadow: cameraStatus === 'active' ? '0 0 40px rgba(20, 217, 151, 0.1)' : 'inset 0 4px 16px rgba(0,0,0,0.4)',
+                    transition: 'all 0.3s'
+                  }}>
+                    {cameraStatus === 'active' && (
+                      <div style={{ position: 'absolute', top: 16, right: 16, zIndex: 10, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', padding: '6px 12px', borderRadius: '24px', display: 'flex', alignItems: 'center', gap: '6px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                        <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--red)', boxShadow: '0 0 8px var(--red)' }} />
+                        <span style={{ color: '#fff', fontSize: '11px', fontWeight: '700', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Live</span>
                       </div>
-                    ))}
+                    )}
+
+                    <video ref={remoteVideoRef} autoPlay playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', display: cameraStatus === 'active' ? 'block' : 'none' }} />
+
+                    {cameraStatus !== 'active' && (
+                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', color: 'var(--txt-faint)', padding: '40px', textAlign: 'center' }}>
+                        {cameraStatus === 'idle' && (
+                          <>
+                            <div style={{ width: 80, height: 80, borderRadius: '50%', background: 'rgba(255,255,255,0.03)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                              <Camera size={32} opacity={0.5} />
+                            </div>
+                            <h3 style={{ fontSize: '18px', color: '#fff', margin: '0 0 8px', fontWeight: '700' }}>Live Verification</h3>
+                            <p style={{ margin: 0, fontSize: '14px', lineHeight: 1.6 }}>Request camera access to view the student's live environment during their assessment.</p>
+                          </>
+                        )}
+                        {cameraStatus === 'requesting' && (
+                          <>
+                            <div className="spin" style={{ width: 40, height: 40, border: '3px solid rgba(124,92,252,0.1)', borderTopColor: '#7c5cfc', borderRadius: '50%', marginBottom: 24 }} />
+                            <h3 style={{ fontSize: '16px', color: '#fff', margin: '0 0 8px' }}>Waiting for Student...</h3>
+                            <p style={{ margin: 0, fontSize: '13px' }}>A permission prompt is currently on the student's screen.</p>
+                          </>
+                        )}
+                        {cameraStatus === 'error' && (
+                          <>
+                            <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(248,113,113,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 24, border: '1px solid rgba(248,113,113,0.2)' }}>
+                              <AlertCircle size={28} color="#f87171" />
+                            </div>
+                            <h3 style={{ fontSize: '16px', color: '#f87171', margin: '0 0 8px' }}>Connection Failed</h3>
+                            <p style={{ margin: 0, fontSize: '13px' }}>{cameraError}</p>
+                          </>
+                        )}
+                      </div>
+                    )}
                   </div>
-                ) : (
-                  <div style={{ padding: '60px 40px', textAlign: 'center', color: 'var(--txt-muted)' }}>
-                    <ImageIcon size={32} opacity={0.3} style={{ marginBottom: '16px' }} />
-                    <div>No screenshot evidence uploaded yet.</div>
+                  
+                  {/* Action Buttons */}
+                  <div style={{ display: 'flex', gap: '16px' }}>
+                    {cameraStatus !== 'active' && cameraStatus !== 'requesting' ? (
+                      <button 
+                        onClick={() => requestCamera(modalUser)}
+                        style={{
+                          flex: 1, padding: '16px', borderRadius: '16px', border: 'none',
+                          background: 'linear-gradient(135deg, #7c5cfc, #6345d8)', color: '#fff',
+                          fontSize: '15px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
+                          boxShadow: '0 8px 24px rgba(124,92,252,0.3)', transition: 'all 0.2s'
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+                        onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
+                      >
+                        <Video size={18} /> Request Live Camera
+                      </button>
+                    ) : (
+                      <button 
+                        onClick={stopCameraConnection}
+                        style={{
+                          flex: 1, padding: '16px', borderRadius: '16px', border: '1px solid rgba(248,113,113,0.3)',
+                          background: 'rgba(248,113,113,0.1)', color: '#f87171',
+                          fontSize: '15px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
+                          transition: 'all 0.2s'
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(248,113,113,0.15)'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'rgba(248,113,113,0.1)'}
+                      >
+                        <LogOut size={18} /> Cancel & Disconnect
+                      </button>
+                    )}
                   </div>
-                )}
+                </div>
+
+                {/* Right Panel: Student Evidence */}
+                <div style={{ flex: '1', overflowY: 'auto', padding: '40px', background: 'rgba(255,255,255,0.01)' }}>
+                  <h3 style={{ fontSize: '16px', color: 'var(--txt-faint)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: '800', margin: '0 0 24px' }}>Submission Evidence</h3>
+                  
+                  {modalUser.submissions && modalUser.submissions.length > 0 ? (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '32px' }}>
+                      {modalUser.submissions.map((sub, i) => (
+                        <div key={i} style={{ background: '#0f0f13', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '24px', overflow: 'hidden', boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}>
+                          <div style={{ padding: '16px 24px', borderBottom: '1px solid rgba(255,255,255,0.04)', background: 'rgba(255,255,255,0.02)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <CheckCircle2 size={18} color="var(--green)" />
+                              <span style={{ fontWeight: '700', color: '#fff', fontSize: '15px' }}>Step {sub.stepId} Verification</span>
+                            </div>
+                            <span style={{ color: 'var(--txt-faint)', fontSize: '13px', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                {new Date(sub.submittedAt).toLocaleString()}
+                            </span>
+                          </div>
+                          <div style={{ padding: '24px', display: 'flex', justifyContent: 'center', background: 'rgba(0,0,0,0.7)', minHeight: '300px', alignItems: 'center' }}>
+                            <img src={sub.imageData} alt={`Step ${sub.stepId}`} style={{ maxWidth: '100%', maxHeight: '600px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', objectFit: 'contain' }} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ padding: '80px 40px', textAlign: 'center', color: 'var(--txt-muted)', background: 'rgba(255,255,255,0.02)', borderRadius: '24px', border: '1px dashed rgba(255,255,255,0.1)' }}>
+                      <ImageIcon size={48} opacity={0.3} style={{ marginBottom: '20px' }} />
+                      <div style={{ fontSize: '18px', color: '#fff', fontWeight: '600', marginBottom: '8px' }}>No evidence yet</div>
+                      <div style={{ fontSize: '14px' }}>This student hasn't successfully verified any steps.</div>
+                    </div>
+                  )}
+                </div>
               </div>
             </motion.div>
           </motion.div>
