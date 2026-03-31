@@ -204,8 +204,8 @@ export default function AdminDashboard({ onLogout }) {
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
-          <div style={{ position: 'relative', width: '300px' }}>
+        <div className="admin-topbar-right" style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+          <div className="admin-search-wrapper" style={{ position: 'relative', width: '300px' }}>
             <Search size={16} color="#94a3b8" style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)' }} />
             <input 
               value={search} onChange={e => setSearch(e.target.value)}
@@ -254,7 +254,7 @@ export default function AdminDashboard({ onLogout }) {
       {/* ══════════════ DASHBOARD GRID BODY ══════════════ */}
       <main style={{ flex: 1, overflowY: 'auto', padding: '32px 48px', background: '#f8fafc' }}>
         
-        <div style={{ 
+        <div className="admin-grid" style={{ 
           display: 'grid', 
           gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', 
           gap: '24px',
@@ -362,11 +362,13 @@ export default function AdminDashboard({ onLogout }) {
               position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(8px)',
               display: 'flex', padding: '40px'
             }}
+            className="admin-modal-container"
             onClick={closeModal}
           >
             <motion.div 
               initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }}
               onClick={e => e.stopPropagation()}
+              className="admin-modal-content"
               style={{ 
                 background: '#ffffff', borderRadius: '24px', 
                 width: '100%', maxWidth: '1400px', margin: '0 auto', display: 'flex', flexDirection: 'column',
@@ -375,7 +377,7 @@ export default function AdminDashboard({ onLogout }) {
               }}
             >
               {/* Header */}
-              <div style={{ padding: '32px 48px', borderBottom: '1px solid #e2e8f0', background: '#ffffff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div className="admin-modal-header" style={{ padding: '32px 48px', borderBottom: '1px solid #e2e8f0', background: '#ffffff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
                   {modalUser.picture ? (
                     <img src={modalUser.picture} alt="" style={{ width: '72px', height: '72px', borderRadius: '50%', border: '4px solid #f1f5f9', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }} />
@@ -402,10 +404,10 @@ export default function AdminDashboard({ onLogout }) {
               </div>
 
               {/* Body */}
-              <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+              <div className="admin-modal-body" style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
                 
                 {/* Left Panel: Camera Stream & Actions */}
-                <div style={{ flex: '0 0 45%', borderRight: '1px solid #e2e8f0', padding: '40px', display: 'flex', flexDirection: 'column', gap: '32px', background: '#f8fafc' }}>
+                <div className="admin-modal-panel" style={{ flex: '0 0 45%', borderRight: '1px solid #e2e8f0', padding: '40px', display: 'flex', flexDirection: 'column', gap: '32px', background: '#f8fafc' }}>
                   
                   {/* Camera Viewer Box */}
                   <div style={{ 
@@ -489,7 +491,7 @@ export default function AdminDashboard({ onLogout }) {
                 </div>
 
                 {/* Right Panel: Student Evidence */}
-                <div style={{ flex: '1', overflowY: 'auto', padding: '40px', background: '#ffffff' }}>
+                <div className="admin-modal-panel" style={{ flex: '1', overflowY: 'auto', padding: '40px', background: '#ffffff' }}>
                   <h3 style={{ fontSize: '18px', color: '#0f172a', fontWeight: '800', margin: '0 0 24px', display: 'flex', alignItems: 'center', gap: '12px' }}>
                     Submission Evidence 
                     <span style={{ background: '#f1f5f9', padding: '4px 10px', borderRadius: '12px', color: '#64748b', fontSize: '13px', fontWeight: '600' }}>

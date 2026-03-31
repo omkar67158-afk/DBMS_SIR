@@ -318,6 +318,7 @@ function App() {
             
             {/* ══════ LEFT DASHBOARD CONTENT ══════ */}
             <motion.div 
+               className="dashboard-container"
                initial={{ x: '-100vw' }}
                animate={{ x: 0 }}
                transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
