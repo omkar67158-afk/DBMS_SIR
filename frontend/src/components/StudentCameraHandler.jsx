@@ -22,13 +22,17 @@ export default function StudentCameraHandler({ user }) {
   useEffect(() => {
     if (!user || user.rollNumber?.startsWith('ADMIN_')) return;
 
-    // Connect socket if not connected
-    if (!socket.connected) {
+    const registerUser = () => {
+      socket.emit('register', { userId: user._id, rollNumber: user.rollNumber });
+    };
+
+    socket.on('connect', registerUser);
+
+    if (socket.connected) {
+      registerUser();
+    } else {
       socket.connect();
     }
-    
-    // Register the user
-    socket.emit('register', { userId: user._id, rollNumber: user.rollNumber });
 
     const handleRequest = (data) => {
       // data: { adminSocketId, adminId }
@@ -92,6 +96,7 @@ export default function StudentCameraHandler({ user }) {
       socket.off('webrtc_offer', handleOffer);
       socket.off('webrtc_answer', handleAnswer);
       socket.off('webrtc_ice_candidate', handleIceCandidate);
+      socket.off('connect', registerUser);
     };
   }, [user, activeSession]);
 
@@ -165,44 +170,47 @@ export default function StudentCameraHandler({ user }) {
             <motion.div
               initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
               style={{
-                background: '#13111a', border: '1px solid rgba(124,92,252,0.3)', borderRadius: '24px',
-                padding: '32px', maxWidth: '400px', width: '100%', textAlign: 'center',
-                boxShadow: '0 24px 48px rgba(0,0,0,0.8), 0 0 40px rgba(124,92,252,0.1)'
+                background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '24px',
+                padding: '32px', maxWidth: '420px', width: '100%', textAlign: 'center',
+                boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25), 0 0 0 1px rgba(0,0,0,0.05)'
               }}
             >
-              <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'rgba(124,92,252,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', border: '1px solid rgba(124,92,252,0.2)' }}>
-                <Camera size={32} color="#a78bfa" />
+              <div style={{ width: '72px', height: '72px', borderRadius: '50%', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', border: '4px solid #f8fafc', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
+                <Camera size={36} color="#6366f1" />
               </div>
-              <h2 style={{ color: '#fff', fontSize: '20px', fontWeight: '700', margin: '0 0 12px' }}>Live Camera Request</h2>
-              <p style={{ color: 'var(--txt-muted)', fontSize: '14px', lineHeight: 1.6, margin: '0 0 24px' }}>
+              <h2 style={{ color: '#0f172a', fontSize: '22px', fontWeight: '800', margin: '0 0 12px', letterSpacing: '-0.01em' }}>Live Camera Request</h2>
+              <p style={{ color: '#475569', fontSize: '15px', lineHeight: 1.6, margin: '0 0 32px' }}>
                 Your instructor is requesting access to your live camera for verification. Are you ready to allow access?
               </p>
               
               {errorStatus && (
-                <div style={{ color: '#f87171', fontSize: '12px', marginBottom: '16px', background: 'rgba(248,113,113,0.1)', padding: '8px', borderRadius: '8px' }}>
+                <div style={{ color: '#ef4444', fontSize: '13px', fontWeight: '600', marginBottom: '20px', background: '#fee2e2', padding: '12px', borderRadius: '12px', border: '1px solid #fecaca' }}>
                   {errorStatus}
                 </div>
               )}
 
-              <div style={{ display: 'flex', gap: '12px' }}>
+              <div style={{ display: 'flex', gap: '16px' }}>
                 <button
                   onClick={() => handleDeny(requestQueue[0])}
                   style={{
-                    flex: 1, padding: '12px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)',
-                    background: 'transparent', color: '#fff', fontSize: '14px', fontWeight: '600', cursor: 'pointer'
+                    flex: 1, padding: '14px', borderRadius: '16px', border: '1px solid #e2e8f0',
+                    background: '#f8fafc', color: '#475569', fontSize: '15px', fontWeight: '700', cursor: 'pointer',
+                    transition: 'all 0.2s', boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
                   }}
-                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
-                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                  onMouseEnter={e => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.color = '#0f172a'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.color = '#475569'; }}
                 >
                   Deny
                 </button>
                 <button
                   onClick={() => handleAllow(requestQueue[0])}
                   style={{
-                    flex: 1, padding: '12px', borderRadius: '12px', border: 'none',
-                    background: 'linear-gradient(135deg, #7c5cfc, #a78bfa)', color: '#fff', fontSize: '14px', fontWeight: '700', cursor: 'pointer',
-                    boxShadow: '0 0 16px rgba(124,92,252,0.3)'
+                    flex: 1, padding: '14px', borderRadius: '16px', border: 'none',
+                    background: 'linear-gradient(135deg, #6366f1, #4f46e5)', color: '#fff', fontSize: '15px', fontWeight: '800', cursor: 'pointer',
+                    boxShadow: '0 4px 6px -1px rgba(99,102,241,0.4)', transition: 'all 0.2s'
                   }}
+                  onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 10px -2px rgba(99,102,241,0.5)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(99,102,241,0.4)'; }}
                 >
                   Allow Camera
                 </button>
@@ -218,24 +226,26 @@ export default function StudentCameraHandler({ user }) {
           <motion.div
             initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
             style={{
-              position: 'fixed', top: '16px', left: '50%', transform: 'translateX(-50%)', zIndex: 99999,
-              background: 'rgba(20, 217, 151, 0.1)', border: '1px solid rgba(20, 217, 151, 0.3)',
-              borderRadius: '24px', padding: '8px 16px', display: 'flex', alignItems: 'center', gap: '8px',
-              backdropFilter: 'blur(8px)', boxShadow: '0 4px 16px rgba(0,0,0,0.2)'
-            }}
-          >
-            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--green)', boxShadow: '0 0 8px var(--green)' }} />
-            <span style={{ color: '#fff', fontSize: '12px', fontWeight: '600', letterSpacing: '0.05em' }}>Camera Live with Admin</span>
-            <button 
-              onClick={() => {
-                socket.emit('camera_stop', { targetSocketId: activeSession.adminSocketId });
-                stopCamera();
+              position: 'fixed', top: '24px', left: '50%', transform: 'translateX(-50%)', zIndex: 99999,
+                background: '#ffffff', border: '1px solid #e2e8f0',
+                borderRadius: '99px', padding: '10px 20px', display: 'flex', alignItems: 'center', gap: '10px',
+                boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.05)'
               }}
-              style={{ background: 'transparent', border: 'none', color: 'var(--txt-faint)', cursor: 'pointer', marginLeft: '8px', padding: '4px', display: 'flex' }}
             >
-              <X size={14} />
-            </button>
-          </motion.div>
+              <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ef4444', boxShadow: '0 0 8px #ef4444' }} />
+              <span style={{ color: '#0f172a', fontSize: '13px', fontWeight: '700', letterSpacing: '0.02em' }}>Camera Live with Admin</span>
+              <button 
+                onClick={() => {
+                  socket.emit('camera_stop', { targetSocketId: activeSession.adminSocketId });
+                  stopCamera();
+                }}
+                style={{ background: '#f1f5f9', border: 'none', color: '#64748b', cursor: 'pointer', marginLeft: '12px', padding: '6px', borderRadius: '50%', display: 'flex', transition: 'all 0.2s' }}
+                onMouseEnter={e => { e.currentTarget.style.background = '#e2e8f0'; e.currentTarget.style.color = '#0f172a'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.color = '#64748b'; }}
+              >
+                <X size={14} />
+              </button>
+            </motion.div>
         )}
       </AnimatePresence>
     </>
