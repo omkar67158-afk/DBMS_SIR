@@ -13,14 +13,7 @@ const { generatePHash, checkDuplicate } = require('./phashUtils');
 
 // groq api requests count starts from 0
 let groqRequestCount = 0;
-let lastRequestTime = Date.now();
-
-// if 1 minute passed reset the count
-const now = Date.now();
-if (now - lastRequestTime > 60000) {
-  groqRequestCount = 0;
-  latestRequestTime = now;
-}
+let lastResetTime = Date.now();
 
 // First key from .env, plus two extra fallback keys for bursts
 const GROQ_KEYS = [
@@ -163,19 +156,47 @@ if (process.env.REDIS_URL) {
 
       const prompt = `You are an automated grading assistant for a Senior Data Engineering boot-camp.\nThe student is submitting their proof for Step ${user.currentStep}.\nThe strict requirement to pass this step is: "${rule}"${step7Note}\n\nWe extracted the following text from their uploaded screenshot using an Optical Character Recognition (OCR) script:\n---\n${extractedText}\n---\n\nBased solely on the provided OCR text, did the student satisfy the requirement? \nYou must respond strictly in JSON format. Do not include markdown formatting or extra dialogue. Use this exact schema:\n{"status": "COMPLETED" | "REJECTED", "reason": "A 1-sentence hindi friend like trolling funny supportive explanation of why it was approved or rejected directed at the student."}`;
 
-      // ── Key Rotation: pick pre-built client by index ──
+      // ── Key Rotation: Try all keys recursively on failure ──
       const now = Date.now();
-      if (now - lastRequestTime > 60000) groqRequestCount = 0;
-      lastRequestTime = now;
-      const currentCycleIndex = Math.floor(groqRequestCount / 25) % groqClients.length;
-      const groqDynamicClient = groqClients[currentCycleIndex];
+      if (now - lastResetTime > 60000) {
+        groqRequestCount = 0;
+        lastResetTime = now;
+      }
+      
+      const startIndex = Math.floor(groqRequestCount / 25) % groqClients.length;
       groqRequestCount++;
 
-      const completion = await groqDynamicClient.chat.completions.create({
-        messages: [{ role: "user", content: prompt }],
-        model: "llama-3.1-8b-instant",
-        response_format: { type: "json_object" }
-      });
+      let completion = null;
+      let aiError = null;
+
+      for (let i = 0; i < groqClients.length; i++) {
+        const clientIndex = (startIndex + i) % groqClients.length;
+        const groqDynamicClient = groqClients[clientIndex];
+        
+        try {
+          completion = await groqDynamicClient.chat.completions.create({
+            messages: [{ role: "user", content: prompt }],
+            model: "llama-3.1-8b-instant",
+            response_format: { type: "json_object" }
+          });
+          aiError = null;
+          break; // Success! Break out of the fallback loop.
+        } catch (error) {
+          const groqStatus = error?.status || error?.error?.status;
+          const isRateLimit = groqStatus === 429 || error?.message?.toLowerCase().includes('rate limit');
+          const isAuthError = groqStatus === 401 || error?.message?.toLowerCase().includes('invalid api key');
+
+          if (isRateLimit || isAuthError) {
+             console.warn(`Groq key ${clientIndex + 1} failed (rate limit/auth). Trying next available key...`);
+             aiError = error;
+             continue; // Move to the next key in the pool
+          } else {
+             throw error; // Other fatal API error, throw immediately
+          }
+        }
+      }
+
+      if (aiError) throw aiError; // If ALL keys are exhausted/invalid, throw to trigger the friendly rejection message
 
       const aiResult = JSON.parse(completion.choices[0].message.content);
       if (aiResult.status !== "COMPLETED") {
